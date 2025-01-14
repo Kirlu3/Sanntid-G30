@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	addr := ":20009"
+	addr := ":30000"
 	conn, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		fmt.Println("Error starting")
@@ -21,13 +21,11 @@ func main() {
 	conn.WriteTo(q, server_addr)
 
 	p := make([]byte, 1024)
-	n, client_addr, client_err := conn.ReadFrom(p)
+	n, _, client_err := conn.ReadFrom(p)
 	if client_err != nil {
 		fmt.Println("Client Error")
 		fmt.Println(client_err)
 		return
 	}
 	fmt.Println(string(p[0:n]))
-	fmt.Println(client_addr)
-
 }
