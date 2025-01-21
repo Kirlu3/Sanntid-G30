@@ -1,8 +1,8 @@
 package main
 
-import "Driver-go/elevio"
+import "Heislab/Driver-go/elevio"
 import "fmt"
-import "fsm"
+import "Heislab/fsm"
 
 func main(){
 
