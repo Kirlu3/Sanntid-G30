@@ -30,12 +30,12 @@ func main(){
     for {
         select {
         case a := <- drv_buttons:
-            fsm.onRequestButtonPress(a)
+            fsm.onRequestButtonPress(a, t_start)
 
         case a := <- drv_floors:
             fsm.onFloorArrival(a)
 
-        case a := <. drv_obstr:
+        case a := <- drv_obstr:
             fsm.onObstruction(a)
 
         case a := <- drv_stop:
