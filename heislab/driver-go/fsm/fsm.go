@@ -1,10 +1,12 @@
 package fsm 
 
-import "fmt"
-import "Heislab/Driver-go/elevio"
-import "time"
+import (
+	"fmt"
+	"Driver-go/elevio"
+	"time"
+)
 
-doorOpenDuration := 3
+var doorOpenDuration int = 3
 
 type ElevatorBehaviour int
 const (
@@ -20,7 +22,7 @@ type Elevator struct {
 	behaviour ElevatorBehaviour
 }
 
-timer(t_start, t_end) {
+func timer(t_start, t_end) {
 	t_on := false
 	for {
 		if <-t_start {
@@ -34,7 +36,7 @@ timer(t_start, t_end) {
 	}
 }
 
-onRequestButtonPress(elevio.ButtonEvent) {
+func onRequestButtonPress(elevio.ButtonEvent) {
 	fmt.Println("onRequestButtonPress")
 	switch ElevatorBehaviour{
 	case ElevatorBehaviour.EB_DoorOpen:
@@ -61,4 +63,5 @@ onRequestButtonPress(elevio.ButtonEvent) {
 				Elevator.behaviour = ElevatorBehaviour.EB_Moving
 		}
 		elevio.SetMotorDirection(Elevator.direction)
+	}
 }

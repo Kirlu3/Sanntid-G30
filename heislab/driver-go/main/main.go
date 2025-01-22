@@ -1,11 +1,13 @@
 package main
 
-import "Heislab/Driver-go/elevio"
-import "fmt"
-import "Heislab/fsm"
+import (
+    "Driver-go/elevio"
+    "fmt"
+    "Driver-go/fsm"
+)
 
 func main(){
-
+    fmt.Println("main started")
     numFloors := elevio.NumFloors
 
     elevio.Init("localhost:15657", numFloors)
@@ -25,7 +27,7 @@ func main(){
     go elevio.PollFloorSensor(drv_floors)
     go elevio.PollObstructionSwitch(drv_obstr)
     go elevio.PollStopButton(drv_stop)
-    go fms.timer(t_start, t_end)
+    go fsm.timer(t_start, t_end)
     
     for {
         select {
@@ -35,13 +37,14 @@ func main(){
         case a := <- drv_floors:
             fsm.onFloorArrival(a)
 
-        case a := <. drv_obstr:
+        case a := <- drv_obstr:
             fsm.onObstruction(a)
 
         case a := <- drv_stop:
             fsm.onStopButtonPress(a)
-        }
+        
         case a := <- t_end:
-            fsm.onTimerEnd(a)
+            fsm.onDoorTimeout(a)
+        }
     }    
 }
