@@ -14,12 +14,12 @@ var _numFloors      int = 4
 var _mtx            sync.Mutex
 var _conn           net.Conn
 
-type MotorDirection int
+type Direction int
 
 const (
-	MD_Up   MotorDirection = 1
-	MD_Down                = -1
-	MD_Stop                = 0
+	D_Up   Direction = 1
+	D_Down                = -1
+	D_Stop                = 0
 )
 
 type ButtonType int
@@ -54,7 +54,7 @@ func Init(addr string, numFloors int) {
 
 
 
-func SetMotorDirection(dir MotorDirection) {
+func SetMotorDirection(dir Direction) {
 	write([4]byte{1, byte(dir), 0, 0})
 }
 

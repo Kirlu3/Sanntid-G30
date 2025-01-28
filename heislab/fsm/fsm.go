@@ -4,7 +4,7 @@ import "fmt"
 import "../driver-go/elevio"
 import "time"
 
-var doorOpenDuration int = 3
+var doorOpenDuration int := 3
 var ob = make(chan bool)
 
 type ElevatorBehaviour int
@@ -15,13 +15,13 @@ const (
 )
 
 type Elevator struct {
-	floor int = -1
-	direction elevio.MotorDirection = elevio.MotorDirection.MD_Stop
-	requests var = [0]int
-	behaviour ElevatorBehaviour = ElevatorBehavior.EB_Idle
+	floor int
+	direction elevio.Direction
+	requests var int
+	behaviour ElevatorBehaviour
 }
 
-Elevator elevator : =
+Elevator elevator := 
 
 
 func timer(t_start chan bool, t_end chan bool) {
