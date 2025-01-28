@@ -21,9 +21,6 @@ type Elevator struct {
 	behaviour ElevatorBehaviour
 }
 
-// Riktig at alle disse skal være funksjoner?
-// Hva er t_start og t_end?
-// t i funksjonen under defineres inne i den første if-setningen men vil brukes utenfor scopet
 
 func timer(t_start chan bool, t_end chan bool) {
 	t_on := false
@@ -42,11 +39,11 @@ func timer(t_start chan bool, t_end chan bool) {
 
 // elevio.ButtonEvent er typen sant?
 
-func onRequestButtonPress(elevio.ButtonEvent, t_start chan bool) {
+func onRequestButtonPress(buttonEvent elevio.ButtonEvent, t_start chan bool) {
 	fmt.Println("onRequestButtonPress")
 	switch ElevatorBehaviour{
 	case ElevatorBehaviour.EB_DoorOpen:
-		if Elevator.floor == ButtonEvent.Floor {
+		if Elevator.floor == buttonEvent.Floor {
 			t_start <- true
 		} else {
 			//Add to queue?
@@ -54,17 +51,17 @@ func onRequestButtonPress(elevio.ButtonEvent, t_start chan bool) {
 		}
 		//Do nothing
 	case ElevatorBehaviour.EB_Moving:
-		Elevator.request = ButtonEvent.Floor
+		Elevator.request = buttonEvent.Floor
 		//There will be a bug here if we allow more than one item in the queue at a time
 	case ElevatorBehaviour.EB_Idle:
-		Elevator.request = ButtonEvent.Floor
+		Elevator.request = buttonEvent.Floor
 		switch Elevator.floor {
-		case ButtonEvent.Floor == Elevator.floor:
+		case buttonEvent.Floor == Elevator.floor:
 			//Open door
 			t_start <- true
 			Elevator.behaviour = ElevatorBehaviour.EB_DoorOpen
 			elevio.SetDoorOpenLamp(true)
-		case ButtonEvent.Floor > Elevator.floor:
+		case buttonEvent.Floor > Elevator.floor:
 			//move up
 			Elevator.direction = elevio.MD_Up
 			Elevator.behaviour = ElevatorBehaviour.EB_Moving
