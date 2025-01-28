@@ -16,7 +16,7 @@ const (
 
 type Elevator struct {
 	floor int
-	direction MotorDirection
+	direction elevio.MotorDirection
 	request int
 	behaviour ElevatorBehaviour
 }
@@ -41,7 +41,7 @@ func timer(t_start chan bool, t_end chan bool) {
 
 func onRequestButtonPress(buttonEvent elevio.ButtonEvent, t_start chan bool) {
 	fmt.Println("onRequestButtonPress")
-	switch ElevatorBehaviour{
+	switch Elevator.ElevatorBehaviour{
 	case ElevatorBehaviour.EB_DoorOpen:
 		if Elevator.floor == buttonEvent.Floor {
 			t_start <- true
@@ -75,7 +75,7 @@ func onRequestButtonPress(buttonEvent elevio.ButtonEvent, t_start chan bool) {
 }}
 
 
-func onFloorArrival(floor int) {
+func onFloorArrival(floor int, t_start chan bool) {
 	fmt.Println("onFloorArrival")
 	Elevator.floor = floor
 	elevio.SetFloorIndicator(floor)
