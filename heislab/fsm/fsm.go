@@ -15,11 +15,13 @@ const (
 )
 
 type Elevator struct {
-	floor int
-	direction elevio.MotorDirection
-	request int
-	behaviour ElevatorBehaviour
+	floor int = -1
+	direction elevio.MotorDirection = elevio.MotorDirection.MD_Stop
+	requests var = [0]int
+	behaviour ElevatorBehaviour = ElevatorBehavior.EB_Idle
 }
+
+Elevator elevator : =
 
 
 func timer(t_start chan bool, t_end chan bool) {
@@ -36,8 +38,6 @@ func timer(t_start chan bool, t_end chan bool) {
 		}
 	}
 }
-
-// elevio.ButtonEvent er typen sant?
 
 func onRequestButtonPress(buttonEvent elevio.ButtonEvent, t_start chan bool) {
 	fmt.Println("onRequestButtonPress")
