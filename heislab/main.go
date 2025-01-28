@@ -1,12 +1,11 @@
 package main
 
-import "Heislab/Driver-go/elevio"
+import "./driver-go/elevio"
 import "fmt"
-import "Heislab/fsm"
+import "./fsm"
 
 func main(){
-
-    numFloors := elevio.NumFloors
+    numFloors := elevio._numFloors
 
     elevio.Init("localhost:15657", numFloors)
     
@@ -40,8 +39,9 @@ func main(){
 
         case a := <- drv_stop:
             fsm.onStopButtonPress(a)
-        }
+        
         case a := <- t_end:
             fsm.onTimerEnd(a)
-    }    
+        }    
+    }
 }

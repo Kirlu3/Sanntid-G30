@@ -1,11 +1,11 @@
 package fsm 
 
 import "fmt"
-import "Heislab/Driver-go/elevio"
+import "../driver-go/elevio"
 import "time"
 
-doorOpenDuration := 3
-ob := make(chan bool)
+var doorOpenDuration int = 3
+var ob = make(chan bool)
 
 type ElevatorBehaviour int
 const (
@@ -21,11 +21,16 @@ type Elevator struct {
 	behaviour ElevatorBehaviour
 }
 
-timer(t_start, t_end) {
+// Riktig at alle disse skal være funksjoner?
+// Hva er t_start og t_end?
+// t i funksjonen under defineres inne i den første if-setningen men vil brukes utenfor scopet
+
+func timer(t_start chan bool, t_end chan bool) {
 	t_on := false
+
 	for {
-		if <-t_start {
-			t := time.Now()
+		if <- t_start {
+			t := time.Now() 
 			t_on = true
 		}
 		if time.Now() - t > doorOpenDuration && t_on {
@@ -35,7 +40,9 @@ timer(t_start, t_end) {
 	}
 }
 
-onRequestButtonPress(elevio.ButtonEvent, t_start) {
+// elevio.ButtonEvent er typen sant?
+
+func onRequestButtonPress(elevio.ButtonEvent, t_start chan bool) {
 	fmt.Println("onRequestButtonPress")
 	switch ElevatorBehaviour{
 	case ElevatorBehaviour.EB_DoorOpen:
@@ -68,9 +75,10 @@ onRequestButtonPress(elevio.ButtonEvent, t_start) {
 	}
 	elevio.SetMotorDirection(Elevator.direction)
 	return
-}
+}}
 
-onFloorArrival(floor int) {
+
+func onFloorArrival(floor int) {
 	fmt.Println("onFloorArrival")
 	Elevator.floor = floor
 	elevio.SetFloorIndicator(floor)
@@ -80,7 +88,7 @@ onFloorArrival(floor int) {
 		Elevator.direction = elevio.MD_Stop
 		elevio.SetMotorDirection(Elevator.direction)
 		elevio.SetDoorOpenLamp(true)
-		t_start <- true
+		t_start <- true 
 		//Clears queue
 		Elevator.request = -1
 	}
@@ -89,22 +97,25 @@ onFloorArrival(floor int) {
 }
 
 //not implemented yet? This is an attempt that might easily make bugs
-onObstruction(obstruction bool) {
+func onObstruction(obstruction bool) {
 	<-ob
-	obstruction -> ob
+	ob <- obstruction 
 	return
 }
 
-onStopButtonPress() {
+func onStopButtonPress() {
 	fmt.Println("You pressed the stop button :)")
 	return
 }
 
-onTimerEnd() {
+
+func onTimerEnd() {
 	//Temporary, not implemented obstruction
 	for <-ob {
 		ob <- true
-	} ob <- false
+	} 
+
+	ob <- false
 	//Checks where the next request is and sets associated direction and behaviour
 	switch Elevator.request {
 	case Elevator.request == -1:
@@ -129,4 +140,5 @@ onTimerEnd() {
 	case ElevatorBehaviour.EB_Idle:
 		elevio.SetDoorOpenLamp(false)		
 	return
+	}
 }
