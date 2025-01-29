@@ -1,27 +1,12 @@
-package fsm 
+package slave
 
-import "fmt"
-import "../driver-go/elevio"
 import "time"
 
 var doorOpenDuration = time.Second * 3
 
 var ob = make(chan bool)
 
-type ElevatorBehaviour int
-const (
-	EB_Idle ElevatorBehaviour = iota
-	EB_DoorOpen
-	EB_Moving
-)
-
-type Elevator struct {
-	floor int 
-	direction elevio.MotorDirection 
-	requests [0]int
-	behaviour ElevatorBehaviour
-}
-var elevator = Elevator{-1, elevio.MD_Stop, [0]int{}, EB_Idle}
+var elevator Elevator
 
 func timer(t_start chan bool, t_end chan bool) {
 	t_on := false
@@ -104,7 +89,8 @@ func onStopButtonPress() {
 	fmt.Println("You pressed the stop button :)")
 	return
 }
-time.Time(time.Now().Year(), 01, 01, 0, 0, 0, 0, time.UTC)tion
+func onTimerEnd(t_start chan bool) {
+
 	for <-ob {
 		ob <- true
 	} 
@@ -113,14 +99,15 @@ time.Time(time.Now().Year(), 01, 01, 0, 0, 0, 0, time.UTC)tion
 	//Checks where the next request is and sets associated direction and behaviour
 	switch elevator.requests {
 	case -1:
-		elevator.behaviour = EB_Idle	
-	case elevator.requests > elevator.floor:
+		elevator.behaviour = EB_Idle
+		//throw error	
+	case > elevator.floor:
 		elevator.direction = elevio.MD_Up
 		elevator.behaviour = EB_Moving
-	case elevator.requests < elevator.floor:
+	case < elevator.floor:
 		elevator.direction = elevio.MD_Down
 		elevator.behaviour = EB_Moving
-	case elevator.requests == elevator.floor:
+	case elevator.floor:
 		elevator.behaviour = EB_DoorOpen
 	}
 
