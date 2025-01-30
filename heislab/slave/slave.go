@@ -1,6 +1,10 @@
 package slave
 
-import "../driver-go/elevio"
+import (
+	"time"
+
+	"../driver-go/elevio"
+)
 
 func Slave() {
 	drv_buttons := make(chan elevio.ButtonEvent)
@@ -8,7 +12,9 @@ func Slave() {
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
 	t_start := make(chan bool)
-	t_end := make(chan bool)
+	//timer init
+	var t_end *time.Timer = time.NewTimer(0)
+	<-t_end.C
 
 	go elevio.PollButtons(drv_buttons)
 	go elevio.PollFloorSensor(drv_floors)
@@ -30,7 +36,7 @@ func Slave() {
 		case <-drv_stop:
 			fsm_onStopButtonPress()
 
-		case <-t_end:
+		case <-t_end.C:
 			fsm_onTimerEnd(t_start)
 		}
 	}

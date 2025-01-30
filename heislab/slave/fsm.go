@@ -2,12 +2,9 @@ package slave
 
 import (
 	"fmt"
-	"time"
 
 	"../driver-go/elevio"
 )
-
-var doorOpenDuration = time.Second * 3
 
 var ob = make(chan bool)
 
@@ -17,22 +14,6 @@ func setAllLights(es Elevator) {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, es.requests[floor][btn])
-		}
-	}
-}
-
-func timer(t_start chan bool, t_end chan bool) {
-	t_on := false
-	t := time.Now()
-
-	for {
-		if <-t_start {
-			t = time.Now()
-			t_on = true
-		}
-		if time.Now()-t > doorOpenDuration && t_on {
-			t_end <- true
-			t_on = false
 		}
 	}
 }
