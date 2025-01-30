@@ -1,7 +1,7 @@
 package slave
 
-var N_BUTTONS = 3
-var N_FLOORS = 4
+const N_BUTTONS = 3
+const N_FLOORS = 4
 
 type ElevatorBehaviour int
 
