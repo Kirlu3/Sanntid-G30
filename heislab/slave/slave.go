@@ -19,19 +19,19 @@ func Slave() {
 	for {
 		select {
 		case a := <-drv_buttons:
-			onRequestButtonPress(a, t_start)
+			fsm_onRequestButtonPress(a, t_start)
 
 		case a := <-drv_floors:
-			onFloorArrival(a, t_start)
+			fsm_onFloorArrival(a, t_start)
 
 		case a := <-drv_obstr:
-			onObstruction(a)
+			fsm_onObstruction(a)
 
 		case <-drv_stop:
-			onStopButtonPress()
+			fsm_onStopButtonPress()
 
 		case <-t_end:
-			onTimerEnd(t_start)
+			fsm_onTimerEnd(t_start)
 		}
 	}
 }
