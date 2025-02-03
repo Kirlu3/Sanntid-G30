@@ -15,8 +15,8 @@ type ElevatorDirection int
 
 const (
 	D_Down ElevatorDirection = -1
-	D_Stop                   = 0
-	D_Up                     = 1
+	D_Stop ElevatorDirection = 0
+	D_Up   ElevatorDirection = 1
 )
 
 type Elevator struct {

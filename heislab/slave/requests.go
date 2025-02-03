@@ -1,5 +1,7 @@
 package Slave
 
+import "github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+
 type DirectionBehaviorPair struct {
 	direction ElevatorDirection
 	behavior  ElevatorBehaviour

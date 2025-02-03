@@ -1,9 +1,8 @@
 package main
 
 import (
-	"./driver-go/elevio"
-
-	Slave "Slave"
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+	Slave "github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 func main() {

@@ -2,6 +2,8 @@ package Slave
 
 import (
 	"fmt"
+
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
 var ob = make(chan bool)
@@ -76,12 +78,10 @@ func fsm_onFloorArrival(newFloor int, t_start chan bool) {
 func fsm_onObstruction(obstruction bool) {
 	<-ob
 	ob <- obstruction
-	return
 }
 
 func fsm_onStopButtonPress() {
 	fmt.Println("You pressed the stop button :)")
-	return
 }
 
 func fsm_onTimerEnd(t_start chan bool) {

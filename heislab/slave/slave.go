@@ -2,6 +2,8 @@ package Slave
 
 import (
 	"time"
+
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
 func Slave() {
