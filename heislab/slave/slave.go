@@ -12,6 +12,7 @@ func Slave() {
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
 	t_start := make(chan bool)
+
 	//timer init
 	var t_end *time.Timer = time.NewTimer(0)
 	<-t_end.C
@@ -21,6 +22,8 @@ func Slave() {
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go elevio.PollStopButton(drv_stop)
 	go timer(t_start, t_end)
+
+	fsm_onInit()
 
 	for {
 		select {

@@ -2,9 +2,9 @@ package Slave
 
 import "github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 
-type DirectionBehaviorPair struct {
+type DirectionBehaviourPair struct {
 	direction ElevatorDirection
-	behavior  ElevatorBehaviour
+	behaviour ElevatorBehaviour
 }
 
 func requests_above(elevator Elevator) bool {
@@ -38,40 +38,40 @@ func request_here(elevator Elevator) bool {
 	return false
 }
 
-func requests_chooseDirection(elevator Elevator) DirectionBehaviorPair {
+func requests_chooseDirection(elevator Elevator) DirectionBehaviourPair {
 	switch elevator.direction {
 	case D_Up:
 		if requests_above(elevator) {
-			return DirectionBehaviorPair{D_Up, EB_Moving}
+			return DirectionBehaviourPair{D_Up, EB_Moving}
 		} else if request_here(elevator) {
-			return DirectionBehaviorPair{D_Down, EB_DoorOpen}
+			return DirectionBehaviourPair{D_Down, EB_DoorOpen}
 		} else if requests_below(elevator) {
-			return DirectionBehaviorPair{D_Down, EB_Moving}
+			return DirectionBehaviourPair{D_Down, EB_Moving}
 		} else {
-			return DirectionBehaviorPair{D_Stop, EB_Idle}
+			return DirectionBehaviourPair{D_Stop, EB_Idle}
 		}
 	case D_Down:
 		if requests_below(elevator) {
-			return DirectionBehaviorPair{D_Down, EB_Moving}
+			return DirectionBehaviourPair{D_Down, EB_Moving}
 		} else if request_here(elevator) {
-			return DirectionBehaviorPair{D_Up, EB_DoorOpen}
+			return DirectionBehaviourPair{D_Up, EB_DoorOpen}
 		} else if requests_above(elevator) {
-			return DirectionBehaviorPair{D_Up, EB_Moving}
+			return DirectionBehaviourPair{D_Up, EB_Moving}
 		} else {
-			return DirectionBehaviorPair{D_Stop, EB_Idle}
+			return DirectionBehaviourPair{D_Stop, EB_Idle}
 		}
 	case D_Stop:
 		if request_here(elevator) {
-			return DirectionBehaviorPair{D_Stop, EB_DoorOpen}
+			return DirectionBehaviourPair{D_Stop, EB_DoorOpen}
 		} else if requests_above(elevator) {
-			return DirectionBehaviorPair{D_Up, EB_Moving}
+			return DirectionBehaviourPair{D_Up, EB_Moving}
 		} else if requests_below(elevator) {
-			return DirectionBehaviorPair{D_Down, EB_Moving}
+			return DirectionBehaviourPair{D_Down, EB_Moving}
 		} else {
-			return DirectionBehaviorPair{D_Stop, EB_Idle}
+			return DirectionBehaviourPair{D_Stop, EB_Idle}
 		}
 	}
-	return DirectionBehaviorPair{D_Stop, EB_Idle}
+	return DirectionBehaviourPair{D_Stop, EB_Idle}
 }
 
 func requests_shouldStop(elevator Elevator) bool {
