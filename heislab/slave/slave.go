@@ -1,9 +1,7 @@
-package slave
+package Slave
 
 import (
 	"time"
-
-	"../driver-go/elevio"
 )
 
 func Slave() {

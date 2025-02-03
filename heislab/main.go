@@ -2,13 +2,14 @@ package main
 
 import (
 	"./driver-go/elevio"
-	"./slave"
+
+	Slave "Slave"
 )
 
 func main() {
 	N_FLOORS := 4
 	elevio.Init("localhost:15657", N_FLOORS)
-	go slave.Slave()
+	go Slave.Slave()
 
 	select {}
 }

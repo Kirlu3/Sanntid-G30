@@ -1,6 +1,4 @@
-package slave
-
-import "../driver-go/elevio"
+package Slave
 
 type DirectionBehaviorPair struct {
 	direction ElevatorDirection

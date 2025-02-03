@@ -1,9 +1,7 @@
-package slave
+package Slave
 
 import (
 	"fmt"
-
-	"../driver-go/elevio"
 )
 
 var ob = make(chan bool)
