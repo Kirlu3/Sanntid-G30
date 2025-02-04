@@ -8,7 +8,7 @@ type DirectionBehaviourPair struct {
 }
 
 func requests_above(elevator Elevator) bool {
-	for f := elevator.floor; f < N_FLOORS; f++ {
+	for f := elevator.floor; f < N_FLOORS-1; f++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			if elevator.requests[f][btn] {
 				return true
@@ -98,7 +98,6 @@ func requests_shouldStop(elevator Elevator) bool {
 			return true
 		}
 		return false
-	case D_Stop:
 	}
 	return true
 }
