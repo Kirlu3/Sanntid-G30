@@ -28,7 +28,6 @@ func read(conn net.PacketConn, msg chan int) {
 		_, _, err := conn.ReadFrom(p)
 		if err != nil {
 			fmt.Println(err)
-			panic(err)
 		}
 		msg <- int(p[0])
 	}
@@ -71,8 +70,18 @@ backup:
 			quit1 <- true
 			break backup
 		case num = <-msg:
+			t_start <- true
 			continue
 		}
+	}
+
+	conn.Close()
+
+	conn, err = net.ListenPacket("udp", ":3000")
+
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
 	}
 
 	// primary phase
