@@ -1,0 +1,5 @@
+package Master
+
+func Master() {
+
+}
