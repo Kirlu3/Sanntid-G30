@@ -8,7 +8,7 @@ type DirectionBehaviourPair struct {
 }
 
 func requests_above(elevator Elevator) bool {
-	for f := elevator.floor; f < N_FLOORS-1; f++ {
+	for f := elevator.floor + 1; f < N_FLOORS; f++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
 			if elevator.requests[f][btn] {
 				return true
@@ -98,8 +98,9 @@ func requests_shouldStop(elevator Elevator) bool {
 			return true
 		}
 		return false
+	default:
+		return true
 	}
-	return true
 }
 
 func requests_shouldClearImmediately(elevator Elevator, btn_floor int, btn_type elevio.ButtonType) bool {
@@ -115,12 +116,12 @@ func requests_clearAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.requests[elevator.floor][elevio.BT_Cab] = false //I doubt we can actually clear in this way
 	switch elevator.direction {
 	case D_Up:
-		if !requests_above(elevator) && !elevator.requests[elevator.floor][elevio.BT_HallDown] {
+		if !requests_above(elevator) && !elevator.requests[elevator.floor][elevio.BT_HallUp] {
 			elevator.requests[elevator.floor][elevio.BT_HallDown] = false
 		}
 		elevator.requests[elevator.floor][elevio.BT_HallUp] = false
 	case D_Down:
-		if !requests_below(elevator) && !elevator.requests[elevator.floor][elevio.BT_HallUp] {
+		if !requests_below(elevator) && !elevator.requests[elevator.floor][elevio.BT_HallDown] {
 			elevator.requests[elevator.floor][elevio.BT_HallUp] = false
 		}
 		elevator.requests[elevator.floor][elevio.BT_HallDown] = false
