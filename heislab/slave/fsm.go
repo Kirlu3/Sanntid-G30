@@ -6,36 +6,29 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
-var elevator Elevator
-
-func setAllLights(es Elevator) {
-	for floor := 0; floor < N_FLOORS; floor++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
-			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, es.requests[floor][btn])
-		}
-	}
+func validElevator(elevator Elevator) bool {
+	return elevator.behaviour > -1 && elevator.behaviour < 3 && //behaviour in bounds
+		elevator.direction > -2 && elevator.direction < 2 && //direction in bounds
+		elevator.floor > -1 && elevator.floor < N_FLOORS && //floor in bounds
+		!elevator.requests[N_FLOORS-1][elevio.BT_HallUp] && !elevator.requests[0][elevio.BT_HallDown] && //no impossible requests
+		!(elevator.behaviour == 2 && elevator.direction == 0) //no behaviour moving without direction
 }
 
-func fsm_onInit() {
+func fsm_onInit(elevator Elevator) Elevator {
 	fmt.Println("onInit")
-	elevio.SetMotorDirection(elevio.MD_Down)
 	elevator.direction = D_Down
 	elevator.behaviour = EB_Moving
 	fmt.Println("offInit")
+	return elevator
 }
 
-func fsm_onRequestButtonPress(buttonEvent elevio.ButtonEvent, t_start chan bool) {
+func fsm_onRequestButtonPress(buttonEvent elevio.ButtonEvent, elevator Elevator) Elevator {
 	fmt.Println("onRequestButtonPress")
 	switch elevator.behaviour {
 	case EB_DoorOpen:
-		if requests_shouldClearImmediately(elevator, buttonEvent.Floor, buttonEvent.Button) {
-			fmt.Println("Starting timer")
-			t_start <- true
-			fmt.Println("Started timer")
-		} else {
+		if !requests_shouldClearImmediately(elevator, buttonEvent.Floor, buttonEvent.Button) {
 			elevator.requests[buttonEvent.Floor][buttonEvent.Button] = true
 		}
-		//Do nothing
 	case EB_Moving:
 		elevator.requests[buttonEvent.Floor][buttonEvent.Button] = true
 	case EB_Idle:
@@ -45,36 +38,26 @@ func fsm_onRequestButtonPress(buttonEvent elevio.ButtonEvent, t_start chan bool)
 		elevator.behaviour = pair.behaviour
 		switch elevator.behaviour {
 		case EB_DoorOpen:
-			//Open door
-			t_start <- true
-			elevio.SetDoorOpenLamp(true)
 			elevator = requests_clearAtCurrentFloor(elevator)
-		case EB_Moving:
-			elevio.SetMotorDirection(elevio.MotorDirection(elevator.direction))
-		case EB_Idle:
 		}
 	}
-	setAllLights(elevator)
+	return elevator
 }
 
-func fsm_onFloorArrival(newFloor int, t_start chan bool) {
+func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	fmt.Println("onFloorArrival")
 	elevator.floor = newFloor
-	elevio.SetFloorIndicator(elevator.floor)
 	switch elevator.behaviour {
 	case EB_Moving:
 		if requests_shouldStop(elevator) {
-			elevio.SetMotorDirection(elevio.MD_Stop)
-			elevio.SetDoorOpenLamp(true)
 			elevator = requests_clearAtCurrentFloor(elevator)
-			t_start <- true
-			setAllLights(elevator)
 			elevator.behaviour = EB_DoorOpen
 		}
 	}
+	return elevator
 }
 
-// not implemented yet? This is an attempt that might easily make bugs
+// not implemented yet
 func fsm_onObstruction(obstruction bool) {
 	if obstruction {
 		fmt.Println("onObstruction -> True")
@@ -87,7 +70,7 @@ func fsm_onStopButtonPress() {
 	fmt.Println("You pressed the stop button :)")
 }
 
-func fsm_onTimerEnd(t_start chan bool) {
+func fsm_onTimerEnd(elevator Elevator) Elevator {
 	fmt.Println("onTimerEnd")
 
 	switch elevator.behaviour {
@@ -95,20 +78,6 @@ func fsm_onTimerEnd(t_start chan bool) {
 		var pair DirectionBehaviourPair = requests_chooseDirection(elevator)
 		elevator.direction = pair.direction
 		elevator.behaviour = pair.behaviour
-
-		switch pair.behaviour {
-		case EB_DoorOpen:
-			t_start <- true
-			elevator = requests_clearAtCurrentFloor(elevator)
-			setAllLights(elevator)
-		case EB_Moving:
-			elevio.SetDoorOpenLamp(false)
-			elevio.SetMotorDirection(elevio.MotorDirection(elevator.direction))
-		case EB_Idle:
-			elevio.SetDoorOpenLamp(false)
-			elevio.SetMotorDirection(elevio.MotorDirection(elevator.direction))
-		}
-	default:
-		return
 	}
+	return elevator
 }
