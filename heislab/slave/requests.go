@@ -113,7 +113,7 @@ func requests_shouldClearImmediately(elevator Elevator, btn_floor int, btn_type 
 
 func requests_clearAtCurrentFloor(elevator Elevator) Elevator {
 	//only case CV_InDirn from C:
-	elevator.requests[elevator.floor][elevio.BT_Cab] = false //I doubt we can actually clear in this way
+	elevator.requests[elevator.floor][elevio.BT_Cab] = false
 	switch elevator.direction {
 	case D_Up:
 		if !requests_above(elevator) && !elevator.requests[elevator.floor][elevio.BT_HallUp] {
@@ -125,7 +125,6 @@ func requests_clearAtCurrentFloor(elevator Elevator) Elevator {
 			elevator.requests[elevator.floor][elevio.BT_HallUp] = false
 		}
 		elevator.requests[elevator.floor][elevio.BT_HallDown] = false
-	case D_Stop:
 	default:
 		elevator.requests[elevator.floor][elevio.BT_HallUp] = false
 		elevator.requests[elevator.floor][elevio.BT_HallDown] = false

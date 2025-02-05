@@ -22,17 +22,28 @@ func Slave() {
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go elevio.PollStopButton(drv_stop)
 	go timer(t_start, t_end)
+	var elevator Elevator
 
-	fsm_onInit()
+	n_elevator := fsm_onInit(elevator)
+	if validElevator(n_elevator) {
+		activateIO(n_elevator, elevator, t_start)
+		elevator = n_elevator
+	}
 
 	for {
 		select {
 		case a := <-drv_buttons:
-			fsm_onRequestButtonPress(a, t_start)
-
+			n_elevator = fsm_onRequestButtonPress(a, elevator)
+			if validElevator(n_elevator) {
+				activateIO(n_elevator, elevator, t_start)
+				elevator = n_elevator
+			}
 		case a := <-drv_floors:
-			fsm_onFloorArrival(a, t_start)
-
+			n_elevator = fsm_onFloorArrival(a, elevator)
+			if validElevator(n_elevator) {
+				activateIO(n_elevator, elevator, t_start)
+				elevator = n_elevator
+			}
 		case a := <-drv_obstr:
 			fsm_onObstruction(a)
 
@@ -40,7 +51,11 @@ func Slave() {
 			fsm_onStopButtonPress()
 
 		case <-t_end.C:
-			fsm_onTimerEnd(t_start)
+			n_elevator = fsm_onTimerEnd(elevator)
+			if validElevator(n_elevator) {
+				activateIO(n_elevator, elevator, t_start)
+				elevator = n_elevator
+			}
 		}
 	}
 }
