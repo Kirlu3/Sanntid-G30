@@ -125,7 +125,6 @@ func requests_clearAtCurrentFloor(elevator Elevator) Elevator {
 			elevator.requests[elevator.floor][elevio.BT_HallUp] = false
 		}
 		elevator.requests[elevator.floor][elevio.BT_HallDown] = false
-	case D_Stop:
 	default:
 		elevator.requests[elevator.floor][elevio.BT_HallUp] = false
 		elevator.requests[elevator.floor][elevio.BT_HallDown] = false
