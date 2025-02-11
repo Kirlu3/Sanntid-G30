@@ -67,6 +67,9 @@ func Slave() {
 		case a := <-drv_floors:
 			n_elevator = fsm_onFloorArrival(a, elevator) //create a new elevator struct
 			if validElevator(n_elevator) {               //check if the new elevator is valid
+				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
+					outgoing <- EventMessage{n_elevator, Stuck, elevio.ButtonEvent{}, n_elevator.Stuck} //send message to master
+				}
 				activateIO(n_elevator, elevator, t_start)                                     //activate IO
 				elevator = n_elevator                                                         //update elevator
 				outgoing <- EventMessage{elevator, FloorArrival, elevio.ButtonEvent{}, false} //send message to master
@@ -84,6 +87,9 @@ func Slave() {
 		case <-t_end.C:
 			n_elevator = fsm_onTimerEnd(elevator)
 			if validElevator(n_elevator) {
+				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
+					outgoing <- EventMessage{n_elevator, Stuck, elevio.ButtonEvent{}, n_elevator.Stuck} //send message to master
+				}
 				activateIO(n_elevator, elevator, t_start)
 				elevator = n_elevator
 			}
@@ -95,4 +101,5 @@ func Slave() {
 - Way to check if the elevator is stuck*/
 
 /*Things to consider:
--Is it OK to potentially not accept a new request if the request is invalid?*/
+-Is it OK to potentially not accept a new request if the request is invalid?
+-Test the stuck system, I was tired when I implemented it*/
