@@ -1,5 +1,9 @@
 package Backup
 
+import (
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
+	Slave "github.com/Kirlu3/Sanntid-G30/heislab/slave"
+)
 
 // maybe make a config file where we can change all parameters
 // set the time until it is time to become the master
@@ -7,56 +11,89 @@ package Backup
 
 // find a way to init the program with an id
 
-// we should be operating with the 
+// we should be operating with the
 
-var _BACKUP_TAKEOVER_SECONDS int = 5
+// network module decides this
+// var _BACKUP_TAKEOVER_SECONDS int = 5
+
+// information the backup needs that is not stored in the Elevator object
+type ElevatorMeta struct {
+	id int
+	isMaster int
+}
+
+type ExpandedElevator struct {
+	elevator Slave.Elevator
+	meta ElevatorMeta
+}
+
+	
+// should this actually be a struct?
+type WorldView struct {
+	expandedElevators []ExpandedElevator
+	myId int
+}
 
 
-func Backup() {
+func Backup(id int) {
+	var worldView WorldView = init_unknown_world_view()
+	var peerUpdate peers.PeerUpdate
+
+
+	peerUpdateCh := make(chan peers.PeerUpdate)
+	peerTxEnable := make(chan bool)
+
+	go peers.Transmitter(15647, id, peerTxEnable)
+	go peers.Receiver(15647, peerUpdateCh)
+
+	worldViewTx := make(chan WorldView)
+	worldViewRx := make(chan WorldView)
+
+	go bcast.Transmitter(16569, worldViewTx)
+	go bcast.Receiver(16569, worldViewRx)
+
 	for {
-		var NODE_ID int = 2
-		var NODE_PORT int = ID_to_PORT(NODE_ID)
 		// what is our local state on startup?
 		// init to DONT_KNOW
 
-		// who is the master?
-	
-		// start in backup phase
-		// wait to hear from the master
-		// if we dont hear from master for _BACKUP_TAKEOVER_SECONDS seconds we break this loop
+
+		// send my worldview periodically
+		go func() {
+			for {
+				worldViewTx <- worldView
+				time.Sleep(1 * time.Second) // how often is message sent?
+			}
+		}()
+
+
+		fmt.Println("Started")
+		messageHandlerLoop:
 		for {
+			select {
+			case peerUpdate = <-peerUpdateCh:
+				fmt.Printf("Peer update:\n")
+				fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
+				fmt.Printf("  New:      %q\n", peerUpdate.New)
+				fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
+				// break if no master is sending messages
+				// break if we are the only one on the network? because clearly then we should become master?
+				// maybe we just loop through everyone and 
+				if (peer) {
+					break messageHandlerLoop
+				}
+	
+			case a := <-worldViewRx:
+				fmt.Printf("Received: %#v\n", a)
+				if (is_master_elevator(a)) {
+					worldView.expandedElevators = a.expandedElevators
+				}
+			}
+		}
 
-			master_state_bytes := listen_from_master()
-			master_state_struct := decode_master_state(master_state_bytes)
-			// the message contains some information which tells us if this is a newer version or not
-			// do we need one go routine for sending and one for receiving? or alternate?
-			// or is this all possible messages from any master/backup?
-			// acceptance test of the master state? make sure the message actually makes sense (but what do we do if it doesnt)
-	
-			// should we do something if we received a message from a different master?
-			// we definetively need to store who is the master/what address we are sending to
-			// or no we just broadcast at our address, the master sends to all addresses
-			// but it is probably cumbersome for the master to read from all addresses
-	
-			// WHEN THE MASTER DIES:
-			// the master has sent us id of all alive elevators, lowest should become new master
-			// if we are lowest become
-	
-	
-	
-			break
+		// close the old channels?
+		if (lowest_id(peerUpdate.Peers, id)) {
+			Master.Master(full state i guess)	
 		}
-	
-	
-		// wait for master message phase
-		if (anyLessThan(other_known_ids, our_id)) {
-			// listen for master message among ALL POSSIBLE other_ids
-		}
-	
-	
-		// become master phase
-		// become master and block the backup code
-		Master.Master(full state i guess)
 	}
-
 }
+

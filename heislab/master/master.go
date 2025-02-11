@@ -12,7 +12,16 @@ func Master() {
 	// go receiveStateFromBackups()
 	// go sendMessagesToSlaves() // orders + anything else?
 	// go receiveMessagesFromSlaves() // all relevant info from slave
-	// go lookForOtherMasters() // and handle potential master merging?
+	// maybe we store some list of lights we want to turn on/other big decisions we want to make
+	// when we get the green light from receiveStateFromBackups we execute?
+
+	// go lookForOtherMasters() // and handle potential master merging? 
+	// could be spawned from receive from backups 
+	// (or spawned here and receive message from receiveStateFromBackups if it needs to do something?)
+	// go assignOrders
+	// go establishConnectionsToSlaves
+
+
 
 
 
