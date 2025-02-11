@@ -15,7 +15,7 @@ func Slave() {
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
-	t_start := make(chan bool)
+	t_start := make(chan int)
 	outgoing := make(chan EventMessage)
 	incoming := make(chan EventMessage)
 
@@ -55,8 +55,7 @@ func Slave() {
 					elevator = n_elevator                     //update elevator
 				}
 			case Light:
-				//not implemented yet
-				//should turn on or off lights depending
+				elevio.SetButtonLamp(a.Btn.Button, a.Btn.Floor, a.Check) //update light
 			default:
 				//shouldn't be any other messages sent to the slave
 				continue
@@ -73,7 +72,11 @@ func Slave() {
 				outgoing <- EventMessage{elevator, FloorArrival, elevio.ButtonEvent{}, false} //send message to master
 			}
 		case a := <-drv_obstr:
-			fsm_onObstruction(a)
+			n_elevator = fsm_onObstruction(a, elevator)
+			if validElevator(n_elevator) {
+				elevator = n_elevator
+				outgoing <- EventMessage{elevator, Stuck, elevio.ButtonEvent{}, a}
+			}
 
 		case <-drv_stop:
 			fsm_onStopButtonPress()
@@ -89,8 +92,6 @@ func Slave() {
 }
 
 /*TODO:
-- Light
-- Obstruction
 - Way to check if the elevator is stuck*/
 
 /*Things to consider:

@@ -58,12 +58,9 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 }
 
 // not implemented yet
-func fsm_onObstruction(obstruction bool) {
-	if obstruction {
-		fmt.Println("onObstruction -> True")
-	} else {
-		fmt.Println("onObstruction -> False")
-	}
+func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
+	elevator.Obstruction = obstruction
+	return elevator
 }
 
 func fsm_onStopButtonPress() {
@@ -75,9 +72,11 @@ func fsm_onTimerEnd(elevator Elevator) Elevator {
 
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
-		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
-		elevator.Direction = pair.Direction
-		elevator.Behaviour = pair.Behaviour
+		if !elevator.Obstruction {
+			var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
+			elevator.Direction = pair.Direction
+			elevator.Behaviour = pair.Behaviour
+		}
 	}
 	return elevator
 }
