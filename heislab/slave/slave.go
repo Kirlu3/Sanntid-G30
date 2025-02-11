@@ -6,12 +6,16 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
+const id = 1
+
 func Slave() {
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
 	t_start := make(chan bool)
+	outgoing := make(chan EventMessage)
+	incoming := make(chan EventMessage)
 
 	//timer init
 	var t_end *time.Timer = time.NewTimer(0)
@@ -22,6 +26,11 @@ func Slave() {
 	go elevio.PollObstructionSwitch(drv_obstr)
 	go elevio.PollStopButton(drv_stop)
 	go timer(t_start, t_end)
+
+	addr := "localhost"
+	go sender(addr, outgoing)
+	go receiver(addr, incoming)
+
 	var elevator Elevator
 
 	n_elevator := fsm_onInit(elevator)

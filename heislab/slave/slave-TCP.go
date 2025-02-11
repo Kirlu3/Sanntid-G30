@@ -24,13 +24,6 @@ type EventMessage struct {
 	Stuck    bool
 }
 
-func Slavetcp(addr string, outgoing chan EventMessage, incoming chan EventMessage) {
-
-	go sender(addr, outgoing)
-	go receiver(addr, incoming)
-	select {}
-}
-
 func sender(addr string, outgoing chan EventMessage) {
 	conn, err := net.Dial("tcp", addr+":30000")
 	if err != nil {
