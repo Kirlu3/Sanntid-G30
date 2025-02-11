@@ -17,11 +17,11 @@ const (
 )
 
 type EventMessage struct {
-	Elev  Elevator
-	Event EventType
-	Btn   elevio.ButtonEvent
-	Floor int
-	Stuck bool
+	Elevator int
+	Event    EventType
+	Btn      elevio.ButtonEvent
+	Floor    int
+	Stuck    bool
 }
 
 func Slavetcp(addr string, outgoing chan EventMessage, incoming chan EventMessage) {
