@@ -17,7 +17,7 @@ const (
 	Stuck
 )
 
-type eventMessage struct {
+type EventMessage struct {
 	elevator Slave.Elevator
 	event    EventType
 	btn      elevio.ButtonEvent
@@ -25,7 +25,7 @@ type eventMessage struct {
 	stuck    bool
 }
 
-func Slavetcp(addr string, outgoing chan eventMessage, in chan eventMessage) {
+func Slavetcp(addr string, outgoing chan EventMessage, in chan EventMessage) {
 
 	s_conn, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -48,7 +48,7 @@ func Slavetcp(addr string, outgoing chan eventMessage, in chan eventMessage) {
 	}
 	defer r_conn.Close()
 
-	incoming := make(chan eventMessage)
+	incoming := make(chan EventMessage)
 
 	go sender(s_conn, outgoing)
 
@@ -57,7 +57,7 @@ func Slavetcp(addr string, outgoing chan eventMessage, in chan eventMessage) {
 	select {}
 }
 
-func sender(conn net.Conn, outgoing chan eventMessage) {
+func sender(conn net.Conn, outgoing chan EventMessage) {
 	for {
 		msg := <-outgoing
 		enc := gob.NewEncoder(conn)
@@ -65,10 +65,10 @@ func sender(conn net.Conn, outgoing chan eventMessage) {
 	}
 }
 
-func receiver(conn net.Conn, incoming chan eventMessage) {
+func receiver(conn net.Conn, incoming chan EventMessage) {
 	dec := gob.NewDecoder(conn)
 	for {
-		var msg eventMessage
+		var msg EventMessage
 		dec.Decode(&msg)
 		incoming <- msg
 	}
