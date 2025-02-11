@@ -11,17 +11,17 @@ import (
 type EventType int
 
 const (
-	Button EventType = iota
-	FloorArrival
-	Stuck
+	Button       EventType = iota //In case of a button press or queue update, both ways
+	Light                         //In case of a light update, only from master
+	FloorArrival                  //In case of a floor arrival, only from slave
+	Stuck                         //In case of a stuck elevator, only from slave
 )
 
 type EventMessage struct {
-	Elevator int
-	Event    EventType
-	Btn      elevio.ButtonEvent
-	Floor    int
-	Stuck    bool
+	Elevator Elevator           //Sends its own elevator struct, always
+	Event    EventType          //Sends the type of event
+	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
+	Check    bool               //Sends a boolean for either Stuck or Light
 }
 
 func sender(addr string, outgoing chan EventMessage) {
