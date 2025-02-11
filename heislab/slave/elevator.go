@@ -20,8 +20,8 @@ const (
 )
 
 type Elevator struct {
-	floor     int
-	direction ElevatorDirection
-	requests  [N_FLOORS][N_BUTTONS]bool
-	behaviour ElevatorBehaviour
+	Floor     int
+	Direction ElevatorDirection
+	Requests  [N_FLOORS][N_BUTTONS]bool
+	Behaviour ElevatorBehaviour
 }
