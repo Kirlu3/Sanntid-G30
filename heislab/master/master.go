@@ -3,7 +3,7 @@ package Master
 import (
 	"fmt"
 )
-git
+
 type HRAElevState struct {
     Floor       int         `json:"floor"` 
     Behavior    string      `json:"behaviour"`
@@ -41,6 +41,7 @@ func Master() {
 		},
 	}
 
+	
 
 	output := assign(input)
 

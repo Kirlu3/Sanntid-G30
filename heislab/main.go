@@ -14,5 +14,5 @@ func main() {
 	Master.Master()
 	//go Backup.Backup()
 
-	select {}
+	//select {}
 }
