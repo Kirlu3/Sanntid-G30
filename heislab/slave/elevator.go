@@ -24,4 +24,24 @@ type Elevator struct {
 	Direction ElevatorDirection
 	Requests  [N_FLOORS][N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
+	Stuck     bool
+	Id        string
+}
+
+// type ExpandedElevator struct {
+// 	Elevator Elevator
+// 	CabCalls [N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+// }
+
+type Calls struct {
+	HallCalls [N_FLOORS]bool
+	CabCalls  [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+}
+
+type WorldView struct {
+	Elevators      [10]Elevator //
+	OwnId          string
+	HallCalls      [N_FLOORS]bool
+	CabCalls       [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	AliveElevators [10]bool
 }
