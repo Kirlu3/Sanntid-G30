@@ -1,99 +1,80 @@
-package Backup
+package backup
 
 import (
+	"fmt"
+	"slices"
+	"time"
+
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/master"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	Slave "github.com/Kirlu3/Sanntid-G30/heislab/slave"
+	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-// maybe make a config file where we can change all parameters
-// set the time until it is time to become the master
-// i guess each node should have an id and associated address/PORT e.g. id = x, port = 6x009?
+func Backup(id string) {
+	var worldView Slave.WorldView
+	worldView.OwnId = id
+	var backupsUpdate peers.PeerUpdate
+	var masterUpdate peers.PeerUpdate
 
-// find a way to init the program with an id
+	backupsUpdateCh := make(chan peers.PeerUpdate)
+	backupsTxEnable := make(chan bool)
 
-// we should be operating with the
+	go peers.Transmitter(config.BackupsUpdatePort, id, backupsTxEnable)
+	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
 
-// network module decides this
-// var _BACKUP_TAKEOVER_SECONDS int = 5
+	masterUpdateCh := make(chan peers.PeerUpdate)
 
-// information the backup needs that is not stored in the Elevator object
-type ElevatorMeta struct {
-	id int
-	isMaster int
-}
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 
-type ExpandedElevator struct {
-	elevator Slave.Elevator
-	meta ElevatorMeta
-}
+	backupWorldViewTx := make(chan Slave.WorldView)
+	masterWorldViewRx := make(chan Slave.WorldView)
 
-	
-// should this actually be a struct?
-type WorldView struct {
-	expandedElevators []ExpandedElevator
-	myId int
-}
-
-
-func Backup(id int) {
-	var worldView WorldView = init_unknown_world_view()
-	var peerUpdate peers.PeerUpdate
-
-
-	peerUpdateCh := make(chan peers.PeerUpdate)
-	peerTxEnable := make(chan bool)
-
-	go peers.Transmitter(15647, id, peerTxEnable)
-	go peers.Receiver(15647, peerUpdateCh)
-
-	worldViewTx := make(chan WorldView)
-	worldViewRx := make(chan WorldView)
-
-	go bcast.Transmitter(16569, worldViewTx)
-	go bcast.Receiver(16569, worldViewRx)
+	go bcast.Transmitter(config.BackupsWorldviewPort, backupWorldViewTx)
+	go bcast.Receiver(config.MasterWorldviewPort, masterWorldViewRx)
 
 	for {
-		// what is our local state on startup?
-		// init to DONT_KNOW
-
-
-		// send my worldview periodically
+		// send my worldview periodically, should we stop this when we become master? or just create one that runs forever
 		go func() {
 			for {
-				worldViewTx <- worldView
-				time.Sleep(1 * time.Second) // how often is message sent?
+				backupWorldViewTx <- worldView
+				time.Sleep(config.BackupMessagePeriodSeconds * time.Second) // how often is message sent?
 			}
 		}()
 
-
 		fmt.Println("Started")
-		messageHandlerLoop:
+	messageHandlerLoop:
 		for {
 			select {
-			case peerUpdate = <-peerUpdateCh:
-				fmt.Printf("Peer update:\n")
-				fmt.Printf("  Peers:    %q\n", peerUpdate.Peers)
-				fmt.Printf("  New:      %q\n", peerUpdate.New)
-				fmt.Printf("  Lost:     %q\n", peerUpdate.Lost)
-				// break if no master is sending messages
-				// break if we are the only one on the network? because clearly then we should become master?
-				// maybe we just loop through everyone and 
-				if (peer) {
+			case masterUpdate = <-masterUpdateCh:
+				fmt.Printf("Master update:\n")
+				fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
+				fmt.Printf("  New:        %q\n", masterUpdate.New)
+				fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
+				if len(masterUpdate.Peers) == 0 {
 					break messageHandlerLoop
 				}
-	
-			case a := <-worldViewRx:
+
+			case backupsUpdate = <-backupsUpdateCh:
+				fmt.Printf("Backups update:\n")
+				fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
+				fmt.Printf("  New:        %q\n", backupsUpdate.New)
+				fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
+
+			case a := <-masterWorldViewRx:
 				fmt.Printf("Received: %#v\n", a)
-				if (is_master_elevator(a)) {
-					worldView.expandedElevators = a.expandedElevators
+				if len(masterUpdate.Peers) > 0 && a.OwnId == masterUpdate.Peers[0] {
+					worldView.Elevators = a.Elevators // i have no idea if this is ok or if we get shallow copy problems with slices
+				} else {
+					fmt.Println("received master state from not the master")
 				}
 			}
 		}
 
-		// close the old channels?
-		if (lowest_id(peerUpdate.Peers, id)) {
-			Master.Master(full state i guess)	
+		if min(slices.Min(backupsUpdate.Peers)) == id {
+			// close the old channels? it might not be strictly necessary, // TODO fix
+			master.Master(worldView)
 		}
 	}
 }
-

@@ -24,4 +24,16 @@ type Elevator struct {
 	Direction ElevatorDirection
 	Requests  [N_FLOORS][N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
+	Id        string
+}
+
+// probably better to just add id to elevator struct
+// type ExpandedElevator struct {
+// 	Elevator Elevator
+// 	Id       string
+// }
+
+type WorldView struct {
+	Elevators []Elevator
+	OwnId     string
 }
