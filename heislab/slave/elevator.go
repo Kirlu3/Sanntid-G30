@@ -28,13 +28,20 @@ type Elevator struct {
 	Id        string
 }
 
-// probably better to just add id to elevator struct
 // type ExpandedElevator struct {
 // 	Elevator Elevator
-// 	Id       string
+// 	CabCalls [N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
 // }
 
+type Calls struct {
+	HallCalls [N_FLOORS]bool
+	CabCalls  [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+}
+
 type WorldView struct {
-	Elevators []Elevator
-	OwnId     string
+	Elevators      [10]Elevator //
+	OwnId          string
+	HallCalls      [N_FLOORS]bool
+	CabCalls       [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	AliveElevators [10]bool
 }

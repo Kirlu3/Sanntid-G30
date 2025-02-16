@@ -16,3 +16,10 @@ just shut down all channels and make go routines return/panic, very uncontrolled
 alternative is more controlled shutdown, but i think this requires much more advanced logic, i.e. channels dedicated to shutting down go routines
 
 i have taken the liberty of adding an Id field to the Slave.Elevator
+i think it would be nice for indexing if every id is a string in the interval "0" to "9"
+this way the worldview struct can have an array of 10 elevators and when we get message from elevator "i" we can update Elevators[i]
+is this ok? objections?
+
+in general if you have any objections to the data format and the way stuff is passed around it should be adressed asap, because it would be very annoying to change later
+
+some places maybe buffered channels would be good to prevent blocking

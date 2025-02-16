@@ -9,7 +9,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/master"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
+	Slave "github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 func Backup(id string) {
@@ -25,7 +25,10 @@ func Backup(id string) {
 	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
 
 	masterUpdateCh := make(chan peers.PeerUpdate)
+	masterTxEnable := make(chan bool)
 
+	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
+	masterTxEnable <- false // this is dangerous as we risk briefly claiming to be master even though we are not, it seems as long as it takes less than interval it is fine
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 
 	backupWorldViewTx := make(chan Slave.WorldView)
@@ -33,6 +36,13 @@ func Backup(id string) {
 
 	go bcast.Transmitter(config.BackupsWorldviewPort, backupWorldViewTx)
 	go bcast.Receiver(config.MasterWorldviewPort, masterWorldViewRx)
+
+	// init for the master phase
+	backupWorldViewRx := make(chan Slave.WorldView)
+	masterWorldViewTx := make(chan Slave.WorldView)
+
+	go bcast.Receiver(config.BackupsWorldviewPort, backupWorldViewRx)
+	go bcast.Transmitter(config.MasterWorldviewPort, masterWorldViewTx)
 
 	for {
 		// send my worldview periodically, should we stop this when we become master? or just create one that runs forever
@@ -74,7 +84,7 @@ func Backup(id string) {
 
 		if min(slices.Min(backupsUpdate.Peers)) == id {
 			// close the old channels? it might not be strictly necessary, // TODO fix
-			master.Master(worldView)
+			master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx)
 		}
 	}
 }
