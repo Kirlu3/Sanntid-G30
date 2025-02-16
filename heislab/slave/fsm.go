@@ -45,6 +45,7 @@ func fsm_onRequestButtonPress(buttonEvent elevio.ButtonEvent, elevator Elevator)
 }
 
 func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
+	elevator.Stuck = false //if the elevator arrives at a floor, it is not stuck
 	fmt.Println("onFloorArrival")
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
@@ -58,12 +59,9 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 }
 
 // not implemented yet
-func fsm_onObstruction(obstruction bool) {
-	if obstruction {
-		fmt.Println("onObstruction -> True")
-	} else {
-		fmt.Println("onObstruction -> False")
-	}
+func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
+	elevator.Stuck = obstruction
+	return elevator
 }
 
 func fsm_onStopButtonPress() {
@@ -75,9 +73,13 @@ func fsm_onTimerEnd(elevator Elevator) Elevator {
 
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
-		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
-		elevator.Direction = pair.Direction
-		elevator.Behaviour = pair.Behaviour
+		if !elevator.Stuck {
+			var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
+			elevator.Direction = pair.Direction
+			elevator.Behaviour = pair.Behaviour
+		}
+	case EB_Moving:
+		elevator.Stuck = true
 	}
 	return elevator
 }

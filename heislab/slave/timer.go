@@ -2,12 +2,9 @@ package Slave
 
 import "time"
 
-var doorOpenDuration = time.Second * 3
-
-func timer(t_start chan bool, t_end *time.Timer) {
+func timer(t_start chan int, t_end *time.Timer) {
 	for {
-		if <-t_start {
-			t_end.Reset(doorOpenDuration)
-		}
+		a := <-t_start
+		t_end.Reset(time.Second * time.Duration(a))
 	}
 }

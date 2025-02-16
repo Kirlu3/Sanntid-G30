@@ -24,6 +24,7 @@ type Elevator struct {
 	Direction ElevatorDirection
 	Requests  [N_FLOORS][N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
+	Stuck     bool
 	Id        string
 }
 
