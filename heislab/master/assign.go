@@ -18,7 +18,7 @@ func assign(input HRAInput) map[string][][2]bool{
     }
 
 
-	// takes input into json format 
+	// makes input into json format 
 	inputJsonFormat, errMarsial := json.Marshal(input)
 
 	if errMarsial != nil{

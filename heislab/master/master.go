@@ -20,9 +20,11 @@ type HRAInput struct {
 
 func Master() {
 
+	requests := [][2]bool{} // list for hall requests 
+
 
 	input := HRAInput{
-		HallRequests: [][2]bool{{false, false}, {true, false}, {false, true}, {false, false}},
+		HallRequests: requests,
 		States: map[string]HRAElevState{
 			"first": HRAElevState{
 				Behavior: "idle",
@@ -40,7 +42,6 @@ func Master() {
 			},
 		},
 	}
-
 	
 
 	output := assign(input)
@@ -58,3 +59,4 @@ func Master() {
 // hvordan få tak i alle hall requests 
 // gjøre om fra struct til riktig input oppsett 
 // obstruction!
+// requests listen må oppdateres når slavene sier ifra om en request til master

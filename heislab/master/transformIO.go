@@ -38,6 +38,5 @@ func transformOutput(){
 }
 
 
-
 // notes:
-// - må vi legge til egen liste med cab requests i Elevator structen?
+// - må vi legge til egen liste med cab requests i Elevator structen? - nei det tror jeg ikke
