@@ -78,7 +78,7 @@ func Slave() {
 			n_elevator = fsm_onObstruction(obs, elevator)
 			if validElevator(n_elevator) {
 				elevator = n_elevator
-				outgoing <- EventMessage{elevator, Stuck, elevio.ButtonEvent{}, a}
+				outgoing <- EventMessage{elevator, Stuck, elevio.ButtonEvent{}, obs}
 			}
 
 		case <-drv_stop:
