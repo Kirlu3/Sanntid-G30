@@ -46,27 +46,27 @@ func Slave() {
 	//main loop (too long?)
 	for {
 		select {
-		case a := <-incoming: //incoming message from master
-			switch a.Event {
+		case msg := <-incoming: //incoming message from master
+			switch msg.Event {
 			case Button: //Case: new queue request
-				n_elevator = fsm_onRequestButtonPress(a.Btn, elevator) //create a new elevator struct
-				if validElevator(n_elevator) {                         //if the new elevator is valid
+				n_elevator = fsm_onRequestButtonPress(msg.Btn, elevator) //create a new elevator struct
+				if validElevator(n_elevator) {                           //if the new elevator is valid
 					activateIO(n_elevator, elevator, t_start) //activate IO
 					elevator = n_elevator                     //update elevator
 				}
 			case Light:
-				elevio.SetButtonLamp(a.Btn.Button, a.Btn.Floor, a.Check) //update light
+				elevio.SetButtonLamp(msg.Btn.Button, msg.Btn.Floor, msg.Check) //update light
 			default:
 				//shouldn't be any other messages sent to the slave
 				continue
 			}
 
-		case a := <-drv_buttons: //button press
-			outgoing <- EventMessage{elevator, Button, a, false} //send message to master
+		case btn := <-drv_buttons: //button press
+			outgoing <- EventMessage{elevator, Button, btn, false} //send message to master
 
-		case a := <-drv_floors:
-			n_elevator = fsm_onFloorArrival(a, elevator) //create a new elevator struct
-			if validElevator(n_elevator) {               //check if the new elevator is valid
+		case floor := <-drv_floors:
+			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
+			if validElevator(n_elevator) {                   //check if the new elevator is valid
 				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
 					outgoing <- EventMessage{n_elevator, Stuck, elevio.ButtonEvent{}, n_elevator.Stuck} //send message to master
 				}
@@ -74,8 +74,8 @@ func Slave() {
 				elevator = n_elevator                                                         //update elevator
 				outgoing <- EventMessage{elevator, FloorArrival, elevio.ButtonEvent{}, false} //send message to master
 			}
-		case a := <-drv_obstr:
-			n_elevator = fsm_onObstruction(a, elevator)
+		case obs := <-drv_obstr:
+			n_elevator = fsm_onObstruction(obs, elevator)
 			if validElevator(n_elevator) {
 				elevator = n_elevator
 				outgoing <- EventMessage{elevator, Stuck, elevio.ButtonEvent{}, a}
