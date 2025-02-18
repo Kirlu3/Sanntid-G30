@@ -1,21 +1,8 @@
-package Master
+package master
 
 import (
 	"fmt"
 )
-
-type HRAElevState struct {
-    Floor       int         `json:"floor"` 
-    Behavior    string      `json:"behaviour"`
-    Direction   string      `json:"direction"`
-    CabRequests []bool      `json:"cabRequests"`
-	Obstruction bool		`json:"obstruction"`
-}
-
-type HRAInput struct {
-    HallRequests    [][2]bool                   `json:"hallRequests"` // first bool is for up and second is down
-    States          map[string]HRAElevState     `json:"states"`
-}
 
 
 func Master() {

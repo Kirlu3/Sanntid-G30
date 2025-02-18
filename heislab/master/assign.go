@@ -1,13 +1,13 @@
-package Master
+package master
 
 import(
 	"fmt"
 	"runtime"
-	"encoding/json"
 	"os/exec"
 )
 
-func assign(input HRAInput) map[string][][2]bool{
+
+func assign(state slave.WordlView) map[string][slave.N_FLOORS][2]bool{
 
 	hraExecutable  := ""
 
@@ -18,27 +18,24 @@ func assign(input HRAInput) map[string][][2]bool{
     }
 
 
-	// makes input into json format 
-	inputJsonFormat, errMarsial := json.Marshal(input)
-
-	if errMarsial != nil{
-		fmt.Println("Error using json.Marshal: ", errMarsial)
-	}
+	input := transformInput(state) // transforms input from worldview to HRAInput
 
 	// assign and returns output in json format 
-	outputJsonFormat, errAssign := exec.Command("./Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(inputJsonFormat)).CombinedOutput()
+	outputJsonFormat, errAssign := exec.Command("./Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(input)).CombinedOutput()
     
 	if errAssign!= nil {
 		fmt.Println("Error occured when assigning: ",errAssign)
 	}
 
-	output := new(map[string][][2]bool)
-	errUnmarshal := json.Unmarshal(outputJsonFormat, &output)
+	// transforms output from json format to the ouputformat
+	output := transformOutput(outputJsonFormat)
 
-	if errUnmarshal != nil {
-		fmt.Println("Error using json.Unmarshal: ", errUnmarshal)
-	}
-
-	return *output
-
+	return output
 }
+
+/* TODO:
+- ta inn riktig type
+- gjøre om fra worldview til HRAInput
+- velge riktig output type 
+- legge inn i assingOrders funksjonen i main-branchen
+*/
