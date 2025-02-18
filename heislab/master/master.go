@@ -8,28 +8,28 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	Slave "github.com/Kirlu3/Sanntid-G30/heislab/slave"
+	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 	"github.com/mohae/deepcopy"
 )
 
 type Placeholder int
 
-func Master(initWorldview Slave.WorldView, masterUpdateCh chan peers.PeerUpdate, masterTxEnable chan bool, masterWorldViewTx chan Slave.WorldView,
-	masterWorldViewRx chan Slave.WorldView, backupWorldViewRx chan Slave.WorldView) {
+func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate, masterTxEnable chan bool, masterWorldViewTx chan slave.WorldView,
+	masterWorldViewRx chan slave.WorldView, backupWorldViewRx chan slave.WorldView) {
 	masterTxEnable <- true
 	fmt.Println(initWorldview.OwnId, " entered master mode")
 
 	// CHANNELS THAT GO ROUTINES WILL COMMUNICATE ON
 	requestAssignment := make(chan struct{})     // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
-	slaveUpdate := make(chan Slave.EventMessage) // receiveMessagesFromSlaves -> stateManager
+	slaveUpdate := make(chan slave.EventMessage) // receiveMessagesFromSlaves -> stateManager
 	backupUpdate := make(chan []string)          // trackAliveBackups -> stateManager
-	mergeState := make(chan Slave.WorldView)     // lookForOtherMasters -> stateManager
-	stateToBackup := make(chan Slave.WorldView)  // stateManager -> sendStateToBackups
+	mergeState := make(chan slave.WorldView)     // lookForOtherMasters -> stateManager
+	stateToBackup := make(chan slave.WorldView)  // stateManager -> sendStateToBackups
 	aliveBackups := make(chan []string)          // stateManager -> receiveBackupAck
-	requestBackupAck := make(chan Slave.Calls)   // stateManager -> receiveBackupAck
-	stateToAssign := make(chan Slave.WorldView)  // stateManager -> assignOrders
+	requestBackupAck := make(chan slave.Calls)   // stateManager -> receiveBackupAck
+	stateToAssign := make(chan slave.WorldView)  // stateManager -> assignOrders
 	orderAssignments := make(chan [][]int)       // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
-	lightsToSlave := make(chan Slave.Calls)      // receiveBackupAck -> sendMessagesToSlaves
+	lightsToSlave := make(chan slave.Calls)      // receiveBackupAck -> sendMessagesToSlaves
 	endMasterPhase := make(chan struct{})        // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
 
 	// EXAMPLE OF POSSIBLE THREADS IN MASTER
@@ -53,18 +53,12 @@ func Master(initWorldview Slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 
 }
 
-func receiveMessagesFromSlaves(slaveUpdate chan Slave.EventMessage) {
-	// receive a message from slave and put it on slaveUpdate
-	var message Slave.EventMessage // TODO
-	slaveUpdate <- message
-}
-
 // it is important that this function doesnt block
-func stateManager(initWorldview Slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan Slave.EventMessage, backupUpdate chan []string,
-	mergeState chan Slave.WorldView, stateToBackup chan Slave.WorldView, aliveBackups chan []string, requestBackupAck chan Slave.Calls,
-	stateToAssign chan Slave.WorldView) {
+func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan slave.EventMessage, backupUpdate chan []string,
+	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackups chan []string, requestBackupAck chan slave.Calls,
+	stateToAssign chan slave.WorldView) {
 	// aliveBackups might be redundant
-	worldview := deepcopy.Copy(initWorldview).(Slave.WorldView)
+	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
 	for {
 		select {
 		case <-requestAssignment:
@@ -74,27 +68,27 @@ func stateManager(initWorldview Slave.WorldView, requestAssignment chan struct{}
 			slaveId := int(slaveMessage.Elevator.Id[0] - '0')
 			switch slaveMessage.Event {
 
-			case Slave.Button:
+			case slave.Button:
 				if slaveMessage.Btn.Button == elevio.BT_Cab {
 					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor][slaveMessage.Btn.Button] = slaveMessage.Check
 				} else {
 					worldview.HallCalls[slaveMessage.Btn.Floor] = slaveMessage.Check // do we have to be careful when removing order? i dont think so
 				}
-				stateToAssign <- deepcopy.Copy(worldview).(Slave.WorldView)
-				requestBackupAck <- Slave.Calls{
+				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
+				requestBackupAck <- slave.Calls{
 					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS]bool),
 					CabCalls:  deepcopy.Copy(worldview.HallCalls).([10][config.N_FLOORS][2]bool),
 				}
 				break
 
-			case Slave.FloorArrival:
+			case slave.FloorArrival:
 				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
 				// should we reassign orders here?
 				break
 
-			case Slave.Stuck:
+			case slave.Stuck:
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
-				stateToAssign <- deepcopy.Copy(worldview).(Slave.WorldView)
+				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				break
 
 			default:
@@ -108,16 +102,16 @@ func stateManager(initWorldview Slave.WorldView, requestAssignment chan struct{}
 			for _, aliveIdx := range backups {
 				worldview.AliveElevators[int(aliveIdx[0]-'0')] = true
 			}
-			stateToAssign <- deepcopy.Copy(worldview).(Slave.WorldView)
+			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 			// maybe forward the update to receiveBackupAck on aliveBackups channel
 
 		case otherMasterState := <-mergeState:
 			fmt.Printf("otherMasterState: %v\n", otherMasterState)
 			// inherit calls from otherMaster TODO
-			stateToAssign <- deepcopy.Copy(worldview).(Slave.WorldView)
+			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 
 		}
-		stateToBackup <- deepcopy.Copy(worldview).(Slave.WorldView)
+		stateToBackup <- deepcopy.Copy(worldview).(slave.WorldView)
 
 	}
 }
@@ -139,7 +133,7 @@ func lookForOtherMasters(endMasterPhase chan struct{}, masterUpdateCh chan peers
 
 }
 
-func assignOrders(stateToAssign chan Slave.WorldView, orderAssignments chan [][]int) {
+func assignOrders(stateToAssign chan slave.WorldView, orderAssignments chan [][]int) {
 	for {
 		select {
 		case state := <-stateToAssign:
@@ -150,7 +144,7 @@ func assignOrders(stateToAssign chan Slave.WorldView, orderAssignments chan [][]
 	}
 }
 
-func sendMessagesToSlaves(orderAssignments chan [][]int, lightsToSlave chan Slave.Calls) {
+func sendMessagesToSlaves(orderAssignments chan [][]int, lightsToSlave chan slave.Calls) {
 	for {
 		select {
 		case a := <-orderAssignments:
@@ -166,8 +160,8 @@ func sendMessagesToSlaves(orderAssignments chan [][]int, lightsToSlave chan Slav
 }
 
 // consider running this as a nested function inside statemanager instead
-func sendStateToBackups(stateToBackup chan Slave.WorldView, masterWorldViewTx chan Slave.WorldView, initWorldview Slave.WorldView) {
-	worldview := deepcopy.Copy(initWorldview).(Slave.WorldView)
+func sendStateToBackups(stateToBackup chan slave.WorldView, masterWorldViewTx chan slave.WorldView, initWorldview slave.WorldView) {
+	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
 	for {
 		select {
 		case worldview = <-stateToBackup:
@@ -180,7 +174,7 @@ func sendStateToBackups(stateToBackup chan Slave.WorldView, masterWorldViewTx ch
 }
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(requestBackupAck chan Slave.Calls, aliveBackups chan []string, lightsToSlave chan Slave.Calls, backupWorldViewRx chan Slave.WorldView) {
+func receiveBackupAck(requestBackupAck chan slave.Calls, aliveBackups chan []string, lightsToSlave chan slave.Calls, backupWorldViewRx chan slave.WorldView) {
 	// TODO: when aliveBackups gets a new message do:
 }
 

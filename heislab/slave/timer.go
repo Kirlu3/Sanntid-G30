@@ -1,4 +1,4 @@
-package Slave
+package slave
 
 import "time"
 

@@ -1,4 +1,4 @@
-package Slave
+package slave
 
 const N_BUTTONS = 3
 const N_FLOORS = 4
