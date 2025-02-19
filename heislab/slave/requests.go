@@ -1,6 +1,9 @@
 package slave
 
-import "github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+import (
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+)
 
 type DirectionBehaviourPair struct {
 	Direction ElevatorDirection
@@ -8,8 +11,8 @@ type DirectionBehaviourPair struct {
 }
 
 func Requests_above(elevator Elevator) bool {
-	for f := elevator.Floor + 1; f < N_FLOORS; f++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
+	for f := elevator.Floor + 1; f < config.N_FLOORS; f++ {
+		for btn := 0; btn < config.N_BUTTONS; btn++ {
 			if elevator.Requests[f][btn] {
 				return true
 			}
@@ -20,7 +23,7 @@ func Requests_above(elevator Elevator) bool {
 
 func Requests_below(elevator Elevator) bool {
 	for f := 0; f < elevator.Floor; f++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
+		for btn := 0; btn < config.N_BUTTONS; btn++ {
 			if elevator.Requests[f][btn] {
 				return true
 			}
@@ -30,7 +33,7 @@ func Requests_below(elevator Elevator) bool {
 }
 
 func request_here(elevator Elevator) bool {
-	for btn := 0; btn < N_BUTTONS; btn++ {
+	for btn := 0; btn < config.N_BUTTONS; btn++ {
 		if elevator.Requests[elevator.Floor][btn] {
 			return true
 		}
@@ -101,14 +104,6 @@ func Requests_shouldStop(elevator Elevator) bool {
 	default:
 		return true
 	}
-}
-
-func Requests_shouldClearImmediately(elevator Elevator, btn_Floor int, btn_type elevio.ButtonType) bool {
-	//only case CV_InDirn from C:
-	return elevator.Floor == btn_Floor && ((elevator.Direction == D_Up && btn_type == elevio.BT_HallUp) ||
-		(elevator.Direction == D_Down && btn_type == elevio.BT_HallDown) ||
-		elevator.Direction == D_Stop ||
-		btn_type == elevio.BT_Cab)
 }
 
 func Requests_clearAtCurrentFloor(elevator Elevator) Elevator {

@@ -10,7 +10,7 @@ import (
 )
 
 // it is important that this function doesnt block
-func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan slave.EventMessage, backupUpdate chan []string,
+func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan EventMessage, backupUpdate chan []string,
 	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackups chan []string, requestBackupAck chan slave.Calls,
 	stateToAssign chan slave.WorldView) {
 	// aliveBackups might be redundant
@@ -21,28 +21,28 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 			stateToAssign <- worldview
 
 		case slaveMessage := <-slaveUpdate:
-			slaveId := int(slaveMessage.Elevator.Id[0] - '0')
+			slaveId := slaveMessage.Elevator.ID
 			switch slaveMessage.Event {
 
-			case slave.Button:
+			case Button:
 				if slaveMessage.Btn.Button == elevio.BT_Cab {
-					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor][slaveMessage.Btn.Button] = slaveMessage.Check
+					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor] = slaveMessage.Check
 				} else {
-					worldview.HallCalls[slaveMessage.Btn.Floor] = slaveMessage.Check // do we have to be careful when removing order? i dont think so
+					worldview.HallCalls[slaveMessage.Btn.Floor][slaveMessage.Btn.Button] = slaveMessage.Check // do we have to be careful when removing order? i dont think so
 				}
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				requestBackupAck <- slave.Calls{
-					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS]bool),
-					CabCalls:  deepcopy.Copy(worldview.HallCalls).([10][config.N_FLOORS][2]bool),
+					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS - 1]bool),
+					CabCalls:  deepcopy.Copy(worldview.HallCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
 				}
 				break
 
-			case slave.FloorArrival:
+			case FloorArrival:
 				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
 				// should we reassign orders here?
 				break
 
-			case slave.Stuck:
+			case Stuck:
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				break

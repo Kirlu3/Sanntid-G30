@@ -1,6 +1,9 @@
 package slave
 
-import "github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+import (
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+)
 
 const doorOpenDuration = 3
 const timeBetweenFloors = 5
@@ -24,4 +27,13 @@ func activateIO(n_elevator Elevator, elevator Elevator, t_start chan int) {
 			elevio.SetMotorDirection(elevio.MD_Stop)
 		}
 	}
+}
+
+func updateLights(lights [config.N_FLOORS][config.N_BUTTONS]bool) {
+	for i := 0; i < config.N_FLOORS; i++ {
+		for j := 0; j < config.N_BUTTONS; j++ {
+			elevio.SetButtonLamp(elevio.ButtonType(j), i, lights[i][j])
+		}
+	}
+
 }

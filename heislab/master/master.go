@@ -15,17 +15,17 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	fmt.Println(initWorldview.OwnId, " entered master mode")
 
 	// CHANNELS THAT GO ROUTINES WILL COMMUNICATE ON
-	requestAssignment := make(chan struct{})     // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
-	slaveUpdate := make(chan slave.EventMessage) // receiveMessagesFromSlaves -> stateManager
-	backupUpdate := make(chan []string)          // trackAliveBackups -> stateManager
-	mergeState := make(chan slave.WorldView)     // lookForOtherMasters -> stateManager
-	stateToBackup := make(chan slave.WorldView)  // stateManager -> sendStateToBackups
-	aliveBackups := make(chan []string)          // stateManager -> receiveBackupAck
-	requestBackupAck := make(chan slave.Calls)   // stateManager -> receiveBackupAck
-	stateToAssign := make(chan slave.WorldView)  // stateManager -> assignOrders
-	orderAssignments := make(chan [][]int)       // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
-	lightsToSlave := make(chan slave.Calls)      // receiveBackupAck -> sendMessagesToSlaves
-	endMasterPhase := make(chan struct{})        // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
+	requestAssignment := make(chan struct{})    // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
+	slaveUpdate := make(chan EventMessage)      // receiveMessagesFromSlaves -> stateManager
+	backupUpdate := make(chan []string)         // trackAliveBackups -> stateManager
+	mergeState := make(chan slave.WorldView)    // lookForOtherMasters -> stateManager
+	stateToBackup := make(chan slave.WorldView) // stateManager -> sendStateToBackups
+	aliveBackups := make(chan []string)         // stateManager -> receiveBackupAck
+	requestBackupAck := make(chan slave.Calls)  // stateManager -> receiveBackupAck
+	stateToAssign := make(chan slave.WorldView) // stateManager -> assignOrders
+	orderAssignments := make(chan [][]int)      // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
+	lightsToSlave := make(chan slave.Calls)     // receiveBackupAck -> sendMessagesToSlaves
+	endMasterPhase := make(chan struct{})       // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
 
 	// EXAMPLE OF POSSIBLE THREADS IN MASTER
 	// go establishConnectionsToSlaves() // i have no idea how this is done or if this go routine makes sense

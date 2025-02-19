@@ -1,7 +1,6 @@
 package slave
 
-const N_BUTTONS = 3
-const N_FLOORS = 4
+import "github.com/Kirlu3/Sanntid-G30/heislab/config"
 
 type ElevatorBehaviour int
 
@@ -22,10 +21,10 @@ const (
 type Elevator struct {
 	Floor     int
 	Direction ElevatorDirection
-	Requests  [N_FLOORS][N_BUTTONS]bool
+	Requests  [config.N_FLOORS][config.N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
 	Stuck     bool
-	Id        string
+	ID        int
 }
 
 // type ExpandedElevator struct {
@@ -34,14 +33,14 @@ type Elevator struct {
 // }
 
 type Calls struct {
-	HallCalls [N_FLOORS]bool
-	CabCalls  [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	HallCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS - 1]bool
+	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
 }
 
 type WorldView struct {
-	Elevators      [10]Elevator //
+	Elevators      [config.N_ELEVATORS]Elevator //
 	OwnId          string
-	HallCalls      [N_FLOORS]bool
-	CabCalls       [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
-	AliveElevators [10]bool
+	HallCalls      [config.N_FLOORS][config.N_BUTTONS - 1]bool
+	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	AliveElevators [config.N_ELEVATORS]bool
 }

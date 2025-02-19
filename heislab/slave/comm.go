@@ -1,64 +1,62 @@
 package slave
 
 import (
-	"encoding/gob"
-	"fmt"
-	"net"
-
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 )
 
-type EventType int
-
-const (
-	Button       EventType = iota //In case of a button press or queue update, both ways
-	Light                         //In case of a light update, only from master
-	FloorArrival                  //In case of a floor arrival, only from slave
-	Stuck                         //In case of a stuck elevator, only from slave
-)
-
-type EventMessage struct {
-	Elevator Elevator           //Sends its own elevator struct, always
-	Event    EventType          //Sends the type of event
-	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
-	Check    bool               //Sends a boolean for either Stuck or Light
+type SlaveMessage struct {
+	Elevator Elevator
+	PrevBtn  elevio.ButtonEvent
 }
 
-func sender(addr string, outgoing chan EventMessage) {
-	conn, err := net.Dial("tcp", addr+":30000")
-	if err != nil {
-		fmt.Println(err) //what do we wanna do in this case?
-		panic(err)
-	}
-	defer conn.Close()
-	fmt.Println("Connected")
-	enc := gob.NewEncoder(conn)
+func sender(elevatorTx chan Elevator, btnTx chan elevio.ButtonEvent) {
+	tx := make(chan SlaveMessage)
+	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
+	var msg SlaveMessage
 	for {
-		msg := <-outgoing
-		fmt.Println("sending message")
-		enc.Encode(&msg)
+		select {
+		case newBtn := <-btnTx:
+			msg.PrevBtn = newBtn
+			tx <- msg
+		case newElevator := <-elevatorTx:
+			msg.Elevator = newElevator
+			tx <- msg
+		default:
+			tx <- msg
+		}
 	}
 }
 
-func receiver(addr string, incoming chan EventMessage) {
-	listener, err := net.Listen("tcp", addr+":20000")
-	if err != nil {
-		fmt.Println(err) //what do we wanna do in this case?
-		panic(err)
-	}
-	defer listener.Close()
+func receiver(ordersRx chan [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan [config.N_FLOORS][config.N_BUTTONS]bool) {
 
-	conn, err := listener.Accept()
-	if err != nil {
-		fmt.Println(err) //what do we wanna do in this case?
-		panic(err)
-	}
-	defer conn.Close()
+	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	go bcast.Receiver(config.SlaveBasePort+ID, rx)
 
-	dec := gob.NewDecoder(conn)
+	var prevMsg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
-		var msg EventMessage
-		dec.Decode(&msg)
-		incoming <- msg
+		msg = <-rx
+		if msg != prevMsg {
+			prevMsg = msg
+			ordersRx <- msg[ID]
+			//I assume there's an easier way to do this, but I need to loop through to get all active orders before sending out
+			lights := [config.N_FLOORS][config.N_BUTTONS]bool{}
+			lights[0:config.N_FLOORS][elevio.BT_Cab] = msg[ID][0:config.N_FLOORS][elevio.BT_Cab]
+			for i := 0; i < config.N_ELEVATORS; i++ {
+				for j := 0; j < config.N_FLOORS; j++ {
+					lights[j][elevio.BT_HallUp] = lights[j][elevio.BT_HallUp] || msg[i][j][elevio.BT_HallUp]
+					lights[j][elevio.BT_HallDown] = lights[j][elevio.BT_HallDown] || msg[i][j][elevio.BT_HallDown]
+				}
+			}
+			lightsRx <- lights
+		} else {
+			continue
+		}
 	}
 }
+
+/*TODO
+- Add a message frequency to sending
+- Fix the for loops?*/
