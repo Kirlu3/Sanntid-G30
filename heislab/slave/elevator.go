@@ -41,7 +41,7 @@ type Calls struct {
 type WorldView struct {
 	Elevators      [10]Elevator //
 	OwnId          string
-	HallCalls      [N_FLOORS]bool
-	CabCalls       [10][N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	HallCalls      [N_FLOORS][2]bool
+	CabCalls       [10][N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
 	AliveElevators [10]bool
 }
