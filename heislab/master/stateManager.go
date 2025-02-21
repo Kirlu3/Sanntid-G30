@@ -27,9 +27,9 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 
 			case slave.Button:
 				if slaveMessage.Btn.Button == elevio.BT_Cab {
-					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor] = slaveMessage.Check
+					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor] = true
 				} else {
-					worldview.HallCalls[slaveMessage.Btn.Floor][slaveMessage.Btn.Button] = slaveMessage.Check // do we have to be careful when removing order? i dont think so
+					worldview.HallCalls[slaveMessage.Btn.Floor][slaveMessage.Btn.Button] = true
 				}
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				requestBackupAck <- slave.Calls{
@@ -39,15 +39,22 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 				break
 
 			case slave.FloorArrival:
+				oldElevator := worldview.Elevators[slaveId]
 				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
 				// should we reassign orders here?
 				switch slaveMessage.Elevator.Behaviour {
-				//If the elevator arrived at a floor and opened its door, it has cleared orders
+				//If the elevator arrived at a floor and opened its door, it has cleared some unkown orders at that floor
 				case slave.EB_DoorOpen:
-
+					//Updates cab orders:
+					worldview.CabCalls[slaveId][worldview.Elevators[slaveId].Floor] = worldview.Elevators[slaveId].Requests[worldview.Elevators[slaveId].Floor][elevio.BT_Cab]
+					//Clears hall orders:
+					for btn := 0; btn < config.N_BUTTONS-1; btn++ {
+						//If the orders are different, prioritize the new ones
+						if oldElevator.Requests[worldview.Elevators[slaveId].Floor][btn] != worldview.Elevators[slaveId].Requests[worldview.Elevators[slaveId].Floor][btn] {
+							worldview.HallCalls[worldview.Elevators[slaveId].Floor][btn] = worldview.Elevators[slaveId].Requests[worldview.Elevators[slaveId].Floor][btn]
+						}
+					}
 				}
-
-				break
 
 			case slave.Stuck:
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
