@@ -68,6 +68,5 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 
 		}
 		stateToBackup <- deepcopy.Copy(worldview).(slave.WorldView)
-
 	}
 }
