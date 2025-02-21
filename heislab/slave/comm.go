@@ -1,43 +1,72 @@
 package slave
 
 import (
+	"math/rand/v2"
+	"time"
+
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 )
 
-type SlaveMessage struct {
-	Elevator Elevator
-	PrevBtn  elevio.ButtonEvent
+type EventType int
+
+const (
+	Button       EventType = iota //In case of a button press or queue update, both ways
+	FloorArrival                  //In case of a floor arrival, only from slave
+	Stuck                         //In case of a stuck elevator, only from slave
+)
+
+type EventMessage struct {
+	MsgID    int
+	Elevator Elevator           //Sends its own elevator struct, always
+	Event    EventType          //Sends the type of event
+	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
+	Check    bool               //Sends a boolean for either Stuck or Light
 }
 
-func sender(elevatorTx chan Elevator, btnTx chan elevio.ButtonEvent) {
-	tx := make(chan SlaveMessage)
+func sender(outgoing <-chan EventMessage) {
+	tx := make(chan EventMessage)
+	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
-	var msg SlaveMessage
+	go bcast.Receiver(config.SlaveBasePort+10, ack)
+	var msgID int
+	ackTimeout := make(chan bool)
+	needAck := false
+	var out EventMessage
+
+	//This will per now continue to retry util it gets an acknowledgement, should it have a timeout?
 	for {
 		select {
-		case newBtn := <-btnTx:
-			msg.PrevBtn = newBtn
-			tx <- msg
-		case newElevator := <-elevatorTx:
-			msg.Elevator = newElevator
-			tx <- msg
-		default:
-			tx <- msg
+		case out = <-outgoing:
+			msgID = rand.Int() //gives the message a random ID
+			out.MsgID = msgID
+			tx <- out
+			ackTimeout <- true
+
+		case ackID := <-ack:
+			if msgID == ackID {
+				needAck = false
+			}
+
+		case <-ackTimeout:
+			if needAck {
+				time.AfterFunc(time.Millisecond*2, func() {
+					tx <- out
+					ackTimeout <- true
+				})
+			}
 		}
 	}
 }
 
-func receiver(ordersRx chan [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan [config.N_FLOORS][config.N_BUTTONS]bool) {
+func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool) {
 
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	go bcast.Receiver(config.SlaveBasePort+ID, rx)
+	go bcast.Receiver(config.SlaveBasePort-1, rx)
 
 	var prevMsg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	for {
-		msg = <-rx
+	for msg := range rx {
 		if msg != prevMsg {
 			prevMsg = msg
 			ordersRx <- msg[ID]

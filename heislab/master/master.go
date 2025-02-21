@@ -17,7 +17,7 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 
 	// CHANNELS THAT GO ROUTINES WILL COMMUNICATE ON
 	requestAssignment := make(chan struct{})     // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
-	slaveUpdate := make(chan EventMessage) // receiveMessagesFromSlaves -> stateManager
+	slaveUpdate := make(chan slave.EventMessage) // receiveMessagesFromSlaves -> stateManager
 	backupUpdate := make(chan []string)          // trackAliveBackups -> stateManager
 	mergeState := make(chan slave.WorldView)     // lookForOtherMasters -> stateManager
 	stateToBackup := make(chan slave.WorldView)  // stateManager -> sendStateToBackups
@@ -33,7 +33,7 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	// go establishConnectionsToSlaves() // i have no idea how this is done or if this go routine makes sense
 
 	// change in state happens when: message is received from slave, alive signal is lost from backup, mergeMaster
-	go receiveMessagesFromSlaves(slaveUpdate)
+	receiveMessagesFromSlaves(slaveUpdate) //starts other go routines
 	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackups, requestBackupAck, stateToAssign)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
 	// go trackAliveBackups(backupUpdate, backupsUpdateCh)

@@ -7,7 +7,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
-const ID = 0
+const ID = 1
 
 func Slave() {
 	//initialize channels
@@ -17,8 +17,7 @@ func Slave() {
 	drv_stop := make(chan bool)
 	t_start := make(chan int)
 
-	elevatorTx := make(chan Elevator)
-	btnTx := make(chan elevio.ButtonEvent)
+	tx := make(chan EventMessage)
 	ordersRx := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
 	lightsRx := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
 
@@ -34,7 +33,7 @@ func Slave() {
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go sender(elevatorTx, btnTx)    //Routine for sending messages to master
+	go sender(tx)                   //Routine for sending messages to master
 	go receiver(ordersRx, lightsRx) //Routine for receiving messages from master
 
 	//initialize elevator
@@ -56,26 +55,28 @@ func Slave() {
 			if validElevator(n_elevator) {
 				activateIO(n_elevator, elevator, t_start)
 				elevator = n_elevator
-				elevatorTx <- elevator
+				//should master get a message here?
 			}
 		case msg := <-lightsRx:
 			updateLights(msg)
-
 		case btn := <-drv_buttons: //button press
-			btnTx <- btn //send button to master
+			tx <- EventMessage{0, elevator, Button, btn, false} //send message to master
 
 		case floor := <-drv_floors:
 			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
 			if validElevator(n_elevator) {                   //check if the new elevator is valid
-				activateIO(n_elevator, elevator, t_start) //activate IO
-				elevator = n_elevator                     //update elevator
-				elevatorTx <- elevator                    //send message to master
+				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
+					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}, n_elevator.Stuck} //send message to master
+				}
+				activateIO(n_elevator, elevator, t_start)                                  //activate IO
+				elevator = n_elevator                                                      //update elevator
+				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}, false} //send message to master
 			}
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)
 			if validElevator(n_elevator) {
 				elevator = n_elevator
-				elevatorTx <- elevator
+				tx <- EventMessage{0, elevator, Stuck, elevio.ButtonEvent{}, obs}
 			}
 
 		case <-drv_stop:
@@ -84,9 +85,11 @@ func Slave() {
 		case <-t_end.C:
 			n_elevator = fsm_onTimerEnd(elevator)
 			if validElevator(n_elevator) {
+				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
+					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}, n_elevator.Stuck} //send message to master
+				}
 				activateIO(n_elevator, elevator, t_start)
 				elevator = n_elevator
-				elevatorTx <- elevator
 			}
 		}
 	}

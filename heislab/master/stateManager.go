@@ -11,7 +11,7 @@ import (
 )
 
 // it is important that this function doesnt block
-func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan EventMessage, backupUpdate chan []string,
+func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan slave.EventMessage, backupUpdate chan []string,
 	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackupsCh chan []string, requestBackupAck chan slave.Calls,
 	stateToAssign chan slave.WorldView) {
 	// aliveBackups might be redundant
@@ -25,7 +25,7 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 			slaveId := slaveMessage.Elevator.ID
 			switch slaveMessage.Event {
 
-			case Button:
+			case slave.Button:
 				if slaveMessage.Btn.Button == elevio.BT_Cab {
 					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor] = slaveMessage.Check
 				} else {
@@ -38,12 +38,18 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 				}
 				break
 
-			case FloorArrival:
+			case slave.FloorArrival:
 				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
 				// should we reassign orders here?
+				switch slaveMessage.Elevator.Behaviour {
+				//If the elevator arrived at a floor and opened its door, it has cleared orders
+				case slave.EB_DoorOpen:
+
+				}
+
 				break
 
-			case Stuck:
+			case slave.Stuck:
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				break
