@@ -2,6 +2,7 @@ package slave
 
 import (
 	"math/rand/v2"
+	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
@@ -12,7 +13,6 @@ type EventType int
 
 const (
 	Button       EventType = iota //In case of a button press or queue update, both ways
-	Light                         //In case of a light update, only from master
 	FloorArrival                  //In case of a floor arrival, only from slave
 	Stuck                         //In case of a stuck elevator, only from slave
 )
@@ -27,16 +27,35 @@ type EventMessage struct {
 
 func sender(outgoing <-chan EventMessage) {
 	tx := make(chan EventMessage)
-	acc := make(chan int)
+	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
-	go bcast.Receiver(config.SlaveBasePort+10, acc)
+	go bcast.Receiver(config.SlaveBasePort+10, ack)
+	var msgID int
+	ackTimeout := make(chan bool)
+	needAck := false
+	var out EventMessage
+
+	//This will per now continue to retry util it gets an acknowledgement, should it have a timeout?
 	for {
 		select {
-		case out := <-outgoing:
-			msgID := rand.Int() //gives the message a random ID
+		case out = <-outgoing:
+			msgID = rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
+			ackTimeout <- true
 
+		case ackID := <-ack:
+			if msgID == ackID {
+				needAck = false
+			}
+
+		case <-ackTimeout:
+			if needAck {
+				time.AfterFunc(time.Millisecond*2, func() {
+					tx <- out
+					ackTimeout <- true
+				})
+			}
 		}
 	}
 }
@@ -44,15 +63,13 @@ func sender(outgoing <-chan EventMessage) {
 func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool) {
 
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	go bcast.Receiver(config.SlaveBasePort+ID, rx)
+	go bcast.Receiver(config.SlaveBasePort-1, rx)
 
 	var prevMsg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	for {
-		msg = <-rx
+	for msg := range rx {
 		if msg != prevMsg {
 			prevMsg = msg
-			ordersRx <- msg[ID-1]
+			ordersRx <- msg[ID]
 			//I assume there's an easier way to do this, but I need to loop through to get all active orders before sending out
 			lights := [config.N_FLOORS][config.N_BUTTONS]bool{}
 			lights[0:config.N_FLOORS][elevio.BT_Cab] = msg[ID][0:config.N_FLOORS][elevio.BT_Cab]
