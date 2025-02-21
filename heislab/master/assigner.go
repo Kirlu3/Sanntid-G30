@@ -120,13 +120,12 @@ func transformOutput(outputJsonFormat []byte, state slave.WorldView) [config.N_E
 		elevatorOrders := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
 		if err_convert != nil {
-			fmt.Println("Error occured when converting ")
+			fmt.Println("Error occured when converting to right assign format: ", err_convert )
 		}
 
 		for floor := range config.N_FLOORS {
 			// appending cab calls from worldview of each floor to the output
 			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][0], tempElevatorOrders[floor][1], state.CabCalls[elevatorNr][floor]}
-
 		}
 
 		output[elevatorNr] = elevatorOrders
