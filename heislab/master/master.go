@@ -5,6 +5,7 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 )
 
 type Placeholder int
@@ -23,7 +24,7 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	aliveBackups := make(chan []string)          // stateManager -> receiveBackupAck
 	requestBackupAck := make(chan slave.Calls)   // stateManager -> receiveBackupAck
 	stateToAssign := make(chan slave.WorldView)  // stateManager -> assignOrders
-	orderAssignments := make(chan map[string][slave.N_FLOORS][2]bool)      // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
+	orderAssignments := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)      // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
 	lightsToSlave := make(chan slave.Calls)      // receiveBackupAck -> sendMessagesToSlaves
 	endMasterPhase := make(chan struct{})        // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
 
