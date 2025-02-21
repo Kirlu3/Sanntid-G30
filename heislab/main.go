@@ -11,7 +11,7 @@ func main() {
 	id := "2"
 	N_FLOORS := 4
 	elevio.Init("localhost:15657", N_FLOORS)
-	go slave.Slave()
+	go slave.Slave(id)
 	go backup.Backup(id)
 
 	select {}

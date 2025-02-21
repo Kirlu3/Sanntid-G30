@@ -17,15 +17,19 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 	// aliveBackups might be redundant
 	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
 	for {
+		fmt.Println("SM:New Loop")
 		select {
 		case <-requestAssignment:
+			fmt.Println("SM:reassignment")
 			stateToAssign <- worldview
 
 		case slaveMessage := <-slaveUpdate:
+			println("SM:Received Slave Update")
 			slaveId := slaveMessage.Elevator.ID
 			switch slaveMessage.Event {
 
 			case slave.Button:
+				fmt.Println("SM:Button Event")
 				if slaveMessage.Btn.Button == elevio.BT_Cab {
 					worldview.CabCalls[slaveId][slaveMessage.Btn.Floor] = true
 				} else {
@@ -39,25 +43,34 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 				break
 
 			case slave.FloorArrival:
+				fmt.Println("Floor Arrival Event")
+
 				oldElevator := worldview.Elevators[slaveId]
-				newElevator := slaveMessage.Elevator
+				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
+				newElevator := worldview.Elevators[slaveId]
 				// should we reassign orders here?
 				switch slaveMessage.Elevator.Behaviour {
 				//If the elevator arrived at a floor and opened its door, it has cleared some unkown orders at that floor
 				case slave.EB_DoorOpen:
 					//Updates cab orders:
-					worldview.CabCalls[slaveId][worldview.Elevators[slaveId].Floor] = worldview.Elevators[slaveId].Requests[worldview.Elevators[slaveId].Floor][elevio.BT_Cab]
+					worldview.CabCalls[slaveId][newElevator.Floor] = newElevator.Requests[newElevator.Floor][elevio.BT_Cab]
 					//Clears hall orders:
 					for btn := 0; btn < config.N_BUTTONS-1; btn++ {
 						//If the orders are different, prioritize the new ones
-						if oldElevator.Requests[worldview.Elevators[slaveId].Floor][btn] != worldview.Elevators[slaveId].Requests[worldview.Elevators[slaveId].Floor][btn] {
-							worldview.HallCalls[worldview.Elevators[slaveId].Floor][btn] = worldview.Elevators[slaveId].Requests[worldview.Elevators[slaveId].Floor][btn]
+						if oldElevator.Requests[newElevator.Floor][btn] != newElevator.Requests[newElevator.Floor][btn] {
+							worldview.HallCalls[newElevator.Floor][btn] = newElevator.Requests[newElevator.Floor][btn]
 						}
 					}
+					stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
+					requestBackupAck <- slave.Calls{
+						HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS][config.N_BUTTONS - 1]bool),
+						CabCalls:  deepcopy.Copy(worldview.CabCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
+					}
 				}
-				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
 
 			case slave.Stuck:
+				fmt.Println("Stuck Event")
+
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				break
@@ -80,15 +93,15 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 		case otherMasterState := <-mergeState:
 			fmt.Printf("otherMasterState: %v\n", otherMasterState)
 			// inherit calls from otherMaster TODO
-			if (otherMasterState.OwnId < worldview.OwnId) {
-				
-			} else if (otherMasterState.OwnId > worldview.OwnId) {
+			if otherMasterState.OwnId < worldview.OwnId {
+
+			} else if otherMasterState.OwnId > worldview.OwnId {
 				if (isCallsSubset(slave.Calls{HallCalls: worldview.HallCalls, CabCalls: worldview.CabCalls},
-								  slave.Calls{HallCalls: otherMasterState.HallCalls, CabCalls: otherMasterState.CabCalls})) {
+					slave.Calls{HallCalls: otherMasterState.HallCalls, CabCalls: otherMasterState.CabCalls})) {
 					endMasterPhase <- struct{}{}
 				}
-			} 
-			
+			}
+
 			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 
 		}

@@ -2,7 +2,6 @@ package backup
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -15,7 +14,7 @@ import (
 func Backup(id string) {
 	var worldView Slave.WorldView
 	worldView.OwnId = id
-	var backupsUpdate peers.PeerUpdate
+	//var backupsUpdate peers.PeerUpdate
 	var masterUpdate peers.PeerUpdate
 
 	backupsUpdateCh := make(chan peers.PeerUpdate)
@@ -53,11 +52,13 @@ func Backup(id string) {
 				time.Sleep(config.BackupMessagePeriodSeconds * time.Second) // how often is message sent?
 			}
 		}()
-
-		fmt.Println("Started")
+		fmt.Println("Backup Started")
 	messageHandlerLoop:
 		for {
 			select {
+			case <-time.After(2 * time.Second):
+				//does this still run if you activate another case?
+				break messageHandlerLoop
 			case masterUpdate = <-masterUpdateCh:
 				fmt.Printf("Master update:\n")
 				fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
@@ -83,10 +84,10 @@ func Backup(id string) {
 			}
 		}
 
-		if min(slices.Min(backupsUpdate.Peers)) == id {
-			// close the old channels? it might not be strictly necessary, // TODO fix
-			backupsTxEnable <- false // consider this
-			master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx, backupsUpdateCh)
-		}
+		//if min(slices.Min(backupsUpdate.Peers)) == id {
+		// close the old channels? it might not be strictly necessary, // TODO fix
+		//backupsTxEnable <- false // consider this
+		master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx, backupsUpdateCh)
+		//}
 	}
 }

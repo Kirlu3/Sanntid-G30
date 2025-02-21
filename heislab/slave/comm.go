@@ -1,6 +1,7 @@
 package slave
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"time"
 
@@ -25,13 +26,13 @@ type EventMessage struct {
 	Check    bool               //Sends a boolean for either Stuck or Light
 }
 
-func sender(outgoing <-chan EventMessage) {
+func sender(outgoing <-chan EventMessage, ID int) {
 	tx := make(chan EventMessage)
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
-	go bcast.Receiver(config.SlaveBasePort+10, ack)
+	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
 	var msgID int
-	ackTimeout := make(chan bool)
+	ackTimeout := make(chan bool, 1)
 	needAck := false
 	var out EventMessage
 
@@ -39,28 +40,33 @@ func sender(outgoing <-chan EventMessage) {
 	for {
 		select {
 		case out = <-outgoing:
+			fmt.Println("Sending Message")
 			msgID = rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
+			needAck = true
 			ackTimeout <- true
 
 		case ackID := <-ack:
 			if msgID == ackID {
+				fmt.Println("Received ack")
 				needAck = false
 			}
 
 		case <-ackTimeout:
-			if needAck {
-				time.AfterFunc(time.Millisecond*2, func() {
+			fmt.Println("Waiting for ack")
+			time.AfterFunc(time.Millisecond*200, func() {
+				fmt.Println("Ack timeout")
+				if needAck {
 					tx <- out
 					ackTimeout <- true
-				})
-			}
+				}
+			})
 		}
 	}
 }
 
-func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool) {
+func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, ID int) {
 
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Receiver(config.SlaveBasePort-1, rx)
@@ -68,6 +74,7 @@ func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx 
 	var prevMsg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for msg := range rx {
 		if msg != prevMsg {
+			fmt.Println("SR: Received Message")
 			prevMsg = msg
 			ordersRx <- msg[ID]
 			//I assume there's an easier way to do this, but I need to loop through to get all active orders before sending out

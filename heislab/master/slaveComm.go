@@ -1,6 +1,7 @@
 package master
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -23,25 +24,28 @@ func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int)
 	go bcast.Transmitter(config.SlaveBasePort+slaveID+10, ack)
 	var msgID int
 	for msg := range rx {
+		ack <- msg.MsgID
 		if msg.MsgID != msgID {
+			println("Received new message")
 			msgID = msg.MsgID
 			slaveUpdate <- msg
 		}
-		ack <- msgID
 	}
 }
 
-func sendMessagesToSlaves(slaveUpdate chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	go bcast.Transmitter(config.SlaveBasePort, tx)
+	go bcast.Transmitter(config.SlaveBasePort-1, tx)
 
 	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
 		//Gives message frequency
-		time.Sleep(time.Millisecond * 2)
+		time.Sleep(time.Millisecond * 5)
 
 		select {
-		case msg = <-slaveUpdate:
+		case msg = <-toSlaveCh:
+			fmt.Println("ST: New orders sent")
+			fmt.Println(msg)
 			tx <- msg
 		default:
 			tx <- msg

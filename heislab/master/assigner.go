@@ -12,14 +12,14 @@ import (
 )
 
 type HRAElevState struct {
-	Floor       int                  `json:"floor"`
-	Behavior    string               `json:"behaviour"`
-	Direction   string               `json:"direction"`
-	CabRequests [config.N_FLOORS]bool `json:"cabRequests"`
+	Behavior    string `json:"behaviour"`
+	Floor       int    `json:"floor"`
+	Direction   string `json:"direction"`
+	CabRequests []bool `json:"cabRequests"`
 }
 
 type HRAInput struct {
-	HallRequests [config.N_FLOORS][2]bool `json:"hallRequests"` // first bool is for up and second is down
+	HallRequests [][2]bool               `json:"hallRequests"` // first bool is for up and second is down
 	States       map[string]HRAElevState `json:"states"`
 }
 
@@ -35,21 +35,23 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
-
 func assignOrders(stateToAssign <-chan slave.WorldView, toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.Calls) {
 	var state slave.WorldView
 	for {
 		select {
 		case state = <-stateToAssign: // as far as assignOrders is concerned it doesnt matter if this comes directly from slaves or through stateManager
+			fmt.Println("As:Received new states")
 		default:
 			select {
 			case calls := <-callsToAssign:
 				state.CabCalls = calls.CabCalls
 				state.HallCalls = calls.HallCalls
-				
+
 				fmt.Printf("state: %v\n", state)
 				assignments := assign(state)
+				fmt.Printf("assigned:%v\n", assignments)
 				toSlaveCh <- assignments
+				fmt.Println("As:Succeded")
 			default:
 			}
 		}
@@ -73,7 +75,7 @@ func assign(state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.
 	input := transformInput(state) // transforms input from worldview to HRAInput
 
 	// assign and returns output in json format
-	outputJsonFormat, errAssign := exec.Command("./Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(input)).CombinedOutput()
+	outputJsonFormat, errAssign := exec.Command("heislab/Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
 		fmt.Println("Error occured when assigning: ", errAssign)
@@ -88,7 +90,7 @@ func assign(state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.
 func transformInput(state slave.WorldView) []byte { // transforms from WorldView to json format
 
 	input := HRAInput{
-		HallRequests: state.HallCalls,
+		HallRequests: state.HallCalls[:],
 		States:       map[string]HRAElevState{},
 	}
 
@@ -99,12 +101,14 @@ func transformInput(state slave.WorldView) []byte { // transforms from WorldView
 				Floor:       state.Elevators[i].Floor,
 				Behavior:    behaviorMap[state.Elevators[i].Behaviour],
 				Direction:   directionMap[state.Elevators[i].Direction],
-				CabRequests: state.CabCalls[i],
+				CabRequests: state.CabCalls[i][:],
 			}
 		}
 	}
 
 	inputJsonFormat, errMarsial := json.Marshal(input)
+
+	fmt.Println("Json input: ", input)
 
 	if errMarsial != nil {
 		fmt.Println("Error using json.Marshal: ", errMarsial)
@@ -129,7 +133,7 @@ func transformOutput(outputJsonFormat []byte, state slave.WorldView) [config.N_E
 		elevatorOrders := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
 		if err_convert != nil {
-			fmt.Println("Error occured when converting to right assign format: ", err_convert )
+			fmt.Println("Error occured when converting to right assign format: ", err_convert)
 		}
 
 		for floor := range config.N_FLOORS {

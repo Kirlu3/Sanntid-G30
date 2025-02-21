@@ -28,6 +28,9 @@ func fsm_onRequests(elevator Elevator) Elevator {
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
 		elevator = Requests_clearAtCurrentFloor(elevator)
+		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
+		elevator.Direction = pair.Direction
+		elevator.Behaviour = pair.Behaviour
 	case EB_Moving:
 	case EB_Idle:
 		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)

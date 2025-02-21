@@ -26,8 +26,9 @@ func sendStateToBackups(stateToBackup chan slave.WorldView, masterWorldViewTx ch
 }
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(requestBackupAckCh chan slave.Calls, aliveBackupsCh chan []string, callsToAssign chan slave.Calls, backupWorldViewRx chan slave.WorldView,
+func receiveBackupAck(OwnId string, requestBackupAckCh chan slave.Calls, aliveBackupsCh chan []string, callsToAssign chan slave.Calls, backupWorldViewRx chan slave.WorldView,
 	backupsUpdateCh chan peers.PeerUpdate) {
+	ID, _ := strconv.Atoi(OwnId)
 	var aliveBackups []string
 	// updating the peers
 	go func() {
@@ -45,13 +46,17 @@ func receiveBackupAck(requestBackupAckCh chan slave.Calls, aliveBackupsCh chan [
 	}()
 	var acksReceived [config.N_ELEVATORS]bool
 	var calls slave.Calls
+	newCalls := false
 mainLoop:
 	for {
 		select {
 		case calls = <-requestBackupAckCh: // when we receive new calls reset all acks
+			newCalls = true
+			fmt.Println("BC: Requested Ack")
 			for i := range acksReceived {
 				acksReceived[i] = false
 			}
+			acksReceived[ID] = true
 		default:
 			select {
 			case a := <-backupWorldViewRx: // set ack for backup if it has the same calls
@@ -68,7 +73,12 @@ mainLoop:
 				continue mainLoop
 			}
 		}
-		callsToAssign <- calls // orders to assign
+		if newCalls {
+			fmt.Println("BC: Sending calls")
+			callsToAssign <- calls // orders to assign
+			fmt.Println("BC: complete")
+			newCalls = false
+		}
 	}
 }
 

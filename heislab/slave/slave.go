@@ -1,15 +1,15 @@
 package slave
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
-const ID = 1
-
-func Slave() {
+func Slave(id string) {
+	ID, _ := strconv.Atoi(id)
 	//initialize channels
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
@@ -33,8 +33,8 @@ func Slave() {
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go sender(tx)                   //Routine for sending messages to master
-	go receiver(ordersRx, lightsRx) //Routine for receiving messages from master
+	go sender(tx, ID)                   //Routine for sending messages to master
+	go receiver(ordersRx, lightsRx, ID) //Routine for receiving messages from master
 
 	//initialize elevator
 	var elevator Elevator
@@ -99,5 +99,7 @@ func Slave() {
 - Way to check if the elevator is stuck*/
 
 /*Things to consider:
--Is it OK to potentially not accept a new request if the request is invalid?
--Test the stuck system, I was tired when I implemented it*/
+-Test the stuck system, I was tired when I implemented it
+-Consider if the elevator should remove assignments from itself or not
+-Fix so that lights can clear when the elevator gets an order on the floor it is idle on
+*/
