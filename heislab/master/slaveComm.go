@@ -23,27 +23,21 @@ type EventMessage struct {
 	Check    bool               //Sends a boolean for either stuck or not stuck
 }
 
-func receiveMessagesFromSlaves(slaveUpdate chan EventMessage) {
-
-	//Sends the rx channel to a receiver for each slave
-	rx := make(chan slave.SlaveMessage)
-	for i := 1; i <= config.N_ELEVATORS; i++ {
-		go bcast.Receiver(config.SlaveBasePort+i, rx)
+func receiveMessagesFromSlaves(slaveUpdate chan<- EventMessage) {
+	for slaveID := 1; slaveID <= config.N_ELEVATORS; slaveID++ {
+		go receiveMessageFromSlave(slaveUpdate, slaveID)
 	}
-	var prevElevator slave.Elevator
-	var prevBtn elevio.ButtonEvent
+}
+
+func receiveMessageFromSlave(slaveUpdate chan<- EventMessage, slaveID int) {
+	//rx channel for receiving from each slave
+	rx := make(chan slave.EventMessage)
+	go bcast.Receiver(config.SlaveBasePort+slaveID, rx)
+	//ack channel to send an acknowledgment to each slave
+	ack := make(chan int)
+	go bcast.Transmitter(config.SlaveBasePort+slaveID+10, ack)
 	for {
-		select {
-		case msg := <-rx:
-			if msg.PrevBtn != prevBtn {
-				slaveUpdate <- EventMessage{Elevator: msg.Elevator, Event: Button, Btn: msg.PrevBtn, Check: false}
-				prevBtn = msg.PrevBtn
-			} else if msg.Elevator.Floor != prevElevator.Floor {
-				slaveUpdate <- EventMessage{Elevator: msg.Elevator, Event: FloorArrival, Btn: elevio.ButtonEvent{}, Check: false}
-			} else if msg.Elevator.Stuck != prevElevator.Stuck {
-				slaveUpdate <- EventMessage{Elevator: msg.Elevator, Event: Stuck, Btn: elevio.ButtonEvent{}, Check: msg.Elevator.Stuck}
-			}
-		}
+		select {}
 	}
 }
 

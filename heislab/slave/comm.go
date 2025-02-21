@@ -1,35 +1,47 @@
 package slave
 
 import (
+	"math/rand/v2"
+
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 )
 
-type SlaveMessage struct {
-	Elevator Elevator
-	PrevBtn  elevio.ButtonEvent
+type EventType int
+
+const (
+	Button       EventType = iota //In case of a button press or queue update, both ways
+	Light                         //In case of a light update, only from master
+	FloorArrival                  //In case of a floor arrival, only from slave
+	Stuck                         //In case of a stuck elevator, only from slave
+)
+
+type EventMessage struct {
+	MsgID    int
+	Elevator Elevator           //Sends its own elevator struct, always
+	Event    EventType          //Sends the type of event
+	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
+	Check    bool               //Sends a boolean for either Stuck or Light
 }
 
-func sender(elevatorTx chan Elevator, btnTx chan elevio.ButtonEvent) {
-	tx := make(chan SlaveMessage)
+func sender(outgoing <-chan EventMessage) {
+	tx := make(chan EventMessage)
+	acc := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
-	var msg SlaveMessage
+	go bcast.Receiver(config.SlaveBasePort+10, acc)
 	for {
 		select {
-		case newBtn := <-btnTx:
-			msg.PrevBtn = newBtn
-			tx <- msg
-		case newElevator := <-elevatorTx:
-			msg.Elevator = newElevator
-			tx <- msg
-		default:
-			tx <- msg
+		case out := <-outgoing:
+			msgID := rand.Int() //gives the message a random ID
+			out.MsgID = msgID
+			tx <- out
+
 		}
 	}
 }
 
-func receiver(ordersRx chan [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan [config.N_FLOORS][config.N_BUTTONS]bool) {
+func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool) {
 
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Receiver(config.SlaveBasePort+ID, rx)

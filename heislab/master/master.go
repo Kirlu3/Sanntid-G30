@@ -31,7 +31,7 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	// go establishConnectionsToSlaves() // i have no idea how this is done or if this go routine makes sense
 
 	// change in state happens when: message is received from slave, alive signal is lost from backup, mergeMaster
-	go receiveMessagesFromSlaves(slaveUpdate)
+	receiveMessagesFromSlaves(slaveUpdate) //starts other go routines
 	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackups, requestBackupAck, stateToAssign)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
 	go trackAliveBackups(backupUpdate)
