@@ -40,7 +40,7 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 
 			case slave.FloorArrival:
 				oldElevator := worldview.Elevators[slaveId]
-				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
+				newElevator := slaveMessage.Elevator
 				// should we reassign orders here?
 				switch slaveMessage.Elevator.Behaviour {
 				//If the elevator arrived at a floor and opened its door, it has cleared some unkown orders at that floor
@@ -55,6 +55,7 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 						}
 					}
 				}
+				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
 
 			case slave.Stuck:
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
