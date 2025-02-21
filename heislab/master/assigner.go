@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
@@ -56,7 +57,7 @@ func assignOrders(stateToAssign <-chan slave.WorldView, toSlaveCh chan [config.N
 
 }
 
-func assign(state slave.WorldView) map[string][config.N_FLOORS][2]bool {
+func assign(state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { // [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 
 	hraExecutable := ""
 
@@ -79,7 +80,7 @@ func assign(state slave.WorldView) map[string][config.N_FLOORS][2]bool {
 	}
 
 	// transforms output from json format to the correct ouputformat
-	output := transformOutput(outputJsonFormat)
+	output := transformOutput(outputJsonFormat, state)
 
 	return output
 }
@@ -112,15 +113,66 @@ func transformInput(state slave.WorldView) []byte { // transforms from WorldView
 	return inputJsonFormat
 }
 
-func transformOutput(outputJsonFormat []byte) map[string][config.N_FLOORS][2]bool {
+func transformOutput(outputJsonFormat []byte, state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
+	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
+	tempOutput := new(map[string][config.N_FLOORS][2]bool)
 
-	outputRightFormat := new(map[string][config.N_FLOORS][2]bool)
-
-	errUnmarshal := json.Unmarshal(outputJsonFormat, &outputRightFormat)
+	errUnmarshal := json.Unmarshal(outputJsonFormat, &tempOutput)
 
 	if errUnmarshal != nil {
 		fmt.Println("Error using json.Unmarshal: ", errUnmarshal)
 	}
 
-	return *outputRightFormat
+	for elevatorKey, tempElevatorOrders := range *tempOutput {
+		elevatorNr, err_convert := strconv.Atoi(elevatorKey)
+
+		elevatorOrders := [config.N_FLOORS][config.N_BUTTONS]bool{}
+
+		if err_convert != nil {
+			fmt.Println("Error occured when converting to right assign format: ", err_convert )
+		}
+
+		for floor := range config.N_FLOORS {
+			// appending cab calls from worldview of each floor to the output
+			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][0], tempElevatorOrders[floor][1], state.CabCalls[elevatorNr][floor]}
+		}
+
+		output[elevatorNr] = elevatorOrders
+	}
+
+	return output
 }
+
+/*
+
+- assigner håndterer bare hall rqeuests og ikke cab requests
+
+*/
+
+/* struktur på tempOutput:
+	"id_1" : [[Boolean, Boolean], ...],
+    "id_2" : ...
+*/
+
+// struktur på output:
+/*[
+	[ elevator 0
+		[up, down, cab], // floor 0
+		[up, down, cab], // floor 1
+		[up, down, cab], // floor 2
+		[up, down, cab] // floor 3
+	],
+	[ elevator 1
+		[[up, down, cab]],
+		[[up, down, cab]],
+		[[up, down, cab]],
+		[[up, down, cab]]
+	],
+	[ elevator 2
+		[[up, down, cab]],
+		[[up, down, cab]],
+		[[up, down, cab]],
+		[[up, down, cab]]
+	]
+]
+*/
