@@ -2,6 +2,7 @@ package master
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
@@ -11,7 +12,7 @@ import (
 
 // it is important that this function doesnt block
 func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan EventMessage, backupUpdate chan []string,
-	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackups chan []string, requestBackupAck chan slave.Calls,
+	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackupsCh chan []string, requestBackupAck chan slave.Calls,
 	stateToAssign chan slave.WorldView) {
 	// aliveBackups might be redundant
 	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
@@ -32,8 +33,8 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 				}
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 				requestBackupAck <- slave.Calls{
-					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS - 1]bool),
-					CabCalls:  deepcopy.Copy(worldview.HallCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
+					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS][config.N_BUTTONS - 1]bool),
+					CabCalls:  deepcopy.Copy(worldview.CabCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
 				}
 				break
 
@@ -51,12 +52,13 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 				panic("invalid message event from slave")
 			}
 
-		case backups := <-backupUpdate:
+		case backups := <-aliveBackupsCh:
 			for i := range worldview.AliveElevators {
 				worldview.AliveElevators[i] = false
 			}
 			for _, aliveIdx := range backups {
-				worldview.AliveElevators[int(aliveIdx[0]-'0')] = true
+				i, _ := strconv.Atoi(aliveIdx)
+				worldview.AliveElevators[i] = true
 			}
 			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 			// maybe forward the update to receiveBackupAck on aliveBackups channel

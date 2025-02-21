@@ -45,6 +45,7 @@ func Backup(id string) {
 	go bcast.Transmitter(config.MasterWorldviewPort, masterWorldViewTx)
 
 	for {
+		backupsTxEnable <- true
 		// send my worldview periodically, should we stop this when we become master? or just create one that runs forever
 		go func() {
 			for {
@@ -66,11 +67,11 @@ func Backup(id string) {
 					break messageHandlerLoop
 				}
 
-			case backupsUpdate = <-backupsUpdateCh:
-				fmt.Printf("Backups update:\n")
-				fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
-				fmt.Printf("  New:        %q\n", backupsUpdate.New)
-				fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
+			// case backupsUpdate = <-backupsUpdateCh:
+			// fmt.Printf("Backups update:\n")
+			// fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
+			// fmt.Printf("  New:        %q\n", backupsUpdate.New)
+			// fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
 			case a := <-masterWorldViewRx:
 				fmt.Printf("Received: %#v\n", a)
@@ -84,7 +85,8 @@ func Backup(id string) {
 
 		if min(slices.Min(backupsUpdate.Peers)) == id {
 			// close the old channels? it might not be strictly necessary, // TODO fix
-			master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx)
+			backupsTxEnable <- false // consider this
+			master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx, backupsUpdateCh)
 		}
 	}
 }

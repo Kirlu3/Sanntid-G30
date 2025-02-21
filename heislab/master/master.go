@@ -11,7 +11,7 @@ import (
 type Placeholder int
 
 func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate, masterTxEnable chan bool, masterWorldViewTx chan slave.WorldView,
-	masterWorldViewRx chan slave.WorldView, backupWorldViewRx chan slave.WorldView) {
+	masterWorldViewRx chan slave.WorldView, backupWorldViewRx chan slave.WorldView, backupsUpdateCh chan peers.PeerUpdate) {
 	masterTxEnable <- true
 	fmt.Println(initWorldview.OwnId, " entered master mode")
 
@@ -35,10 +35,10 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	go receiveMessagesFromSlaves(slaveUpdate)
 	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackups, requestBackupAck, stateToAssign)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
-	go trackAliveBackups(backupUpdate)
-	go receiveBackupAck(requestBackupAck, aliveBackups, lightsToSlave, backupWorldViewRx)
+	// go trackAliveBackups(backupUpdate, backupsUpdateCh)
+	go receiveBackupAck(requestBackupAck, aliveBackups, lightsToSlave, backupWorldViewRx, backupsUpdateCh)
 	go assignOrders(stateToAssign, orderAssignments)         // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
-	go sendMessagesToSlaves(orderAssignments, lightsToSlave) // orders (+ lights?)
+	go sendMessagesToSlaves(orderAssignments, lightsToSlave) // orders (+ lights?) ??
 	go lookForOtherMasters(endMasterPhase, masterUpdateCh, initWorldview.OwnId)
 
 	<-endMasterPhase

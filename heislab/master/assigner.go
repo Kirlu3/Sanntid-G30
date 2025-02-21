@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
@@ -13,11 +14,11 @@ type HRAElevState struct {
 	Floor       int                  `json:"floor"`
 	Behavior    string               `json:"behaviour"`
 	Direction   string               `json:"direction"`
-	CabRequests [slave.N_FLOORS]bool `json:"cabRequests"`
+	CabRequests [config.N_FLOORS]bool `json:"cabRequests"`
 }
 
 type HRAInput struct {
-	HallRequests [slave.N_FLOORS][2]bool `json:"hallRequests"` // first bool is for up and second is down
+	HallRequests [config.N_FLOORS][2]bool `json:"hallRequests"` // first bool is for up and second is down
 	States       map[string]HRAElevState `json:"states"`
 }
 
@@ -33,7 +34,7 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
-func assignOrders(stateToAssign chan slave.WorldView, orderAssignments chan map[string][slave.N_FLOORS][2]bool) {
+func assignOrders(stateToAssign chan slave.WorldView, orderAssignments chan map[string][config.N_FLOORS][2]bool) {
 	for {
 		select {
 		case state := <-stateToAssign:
@@ -46,7 +47,7 @@ func assignOrders(stateToAssign chan slave.WorldView, orderAssignments chan map[
 	}
 }
 
-func assign(state slave.WorldView) map[string][slave.N_FLOORS][2]bool {
+func assign(state slave.WorldView) map[string][config.N_FLOORS][2]bool {
 
 	hraExecutable := ""
 
@@ -102,9 +103,9 @@ func transformInput(state slave.WorldView) []byte { // transforms from WorldView
 	return inputJsonFormat
 }
 
-func transformOutput(outputJsonFormat []byte) map[string][slave.N_FLOORS][2]bool {
+func transformOutput(outputJsonFormat []byte) map[string][config.N_FLOORS][2]bool {
 
-	outputRightFormat := new(map[string][slave.N_FLOORS][2]bool)
+	outputRightFormat := new(map[string][config.N_FLOORS][2]bool)
 
 	errUnmarshal := json.Unmarshal(outputJsonFormat, &outputRightFormat)
 

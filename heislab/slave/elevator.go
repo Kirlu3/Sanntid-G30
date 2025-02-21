@@ -24,7 +24,7 @@ type Elevator struct {
 	Requests  [config.N_FLOORS][config.N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
 	Stuck     bool
-	ID        int
+	ID        int		//ID int vs Id string ???
 }
 
 // type ExpandedElevator struct {
@@ -33,7 +33,7 @@ type Elevator struct {
 // }
 
 type Calls struct {
-	HallCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS - 1]bool
+	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
 	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
 }
 
