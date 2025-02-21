@@ -21,12 +21,12 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	backupUpdate := make(chan []string)          // trackAliveBackups -> stateManager
 	mergeState := make(chan slave.WorldView)     // lookForOtherMasters -> stateManager
 	stateToBackup := make(chan slave.WorldView)  // stateManager -> sendStateToBackups
-	aliveBackups := make(chan []string)          // stateManager -> receiveBackupAck
+	aliveBackupsCh := make(chan []string)        // stateManager -> receiveBackupAck
 	requestBackupAck := make(chan slave.Calls)   // stateManager -> receiveBackupAck
 	stateToAssign := make(chan slave.WorldView)  // stateManager -> assignOrders
 	// orderAssignments := make(chan map[string][config.N_FLOORS][2]bool)      // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
-	lightsToSlave := make(chan slave.Calls)      // receiveBackupAck -> sendMessagesToSlaves
-	endMasterPhase := make(chan struct{})        // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
+	lightsToSlave := make(chan slave.Calls) // receiveBackupAck -> sendMessagesToSlaves
+	endMasterPhase := make(chan struct{})   // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
 	toSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	callsToAssign := make(chan slave.Calls)
 	// EXAMPLE OF POSSIBLE THREADS IN MASTER
@@ -34,13 +34,13 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 
 	// change in state happens when: message is received from slave, alive signal is lost from backup, mergeMaster
 	receiveMessagesFromSlaves(slaveUpdate) //starts other go routines
-	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackups, requestBackupAck, stateToAssign)
+	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackupsCh, requestBackupAck, stateToAssign, endMasterPhase)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
 	// go trackAliveBackups(backupUpdate, backupsUpdateCh)
-	go receiveBackupAck(requestBackupAck, aliveBackups, lightsToSlave, backupWorldViewRx, backupsUpdateCh)
-	go assignOrders(stateToAssign, toSlaveCh, callsToAssign)         // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
-	go sendMessagesToSlaves(toSlaveCh) // orders (+ lights?) ??
-	go lookForOtherMasters(endMasterPhase, masterWorldViewRx, initWorldview.OwnId)
+	go receiveBackupAck(requestBackupAck, aliveBackupsCh, lightsToSlave, backupWorldViewRx, backupsUpdateCh)
+	go assignOrders(stateToAssign, toSlaveCh, callsToAssign) // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
+	go sendMessagesToSlaves(toSlaveCh)                       // orders (+ lights?) ??
+	go lookForOtherMasters(endMasterPhase, masterWorldViewRx, initWorldview.OwnId, mergeState)
 
 	<-endMasterPhase
 	masterTxEnable <- false

@@ -13,7 +13,7 @@ import (
 // it is important that this function doesnt block
 func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan slave.EventMessage, backupUpdate chan []string,
 	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackupsCh chan []string, requestBackupAck chan slave.Calls,
-	stateToAssign chan slave.WorldView) {
+	stateToAssign chan slave.WorldView, endMasterPhase chan<- struct{}) {
 	// aliveBackups might be redundant
 	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
 	for {
@@ -72,9 +72,52 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 		case otherMasterState := <-mergeState:
 			fmt.Printf("otherMasterState: %v\n", otherMasterState)
 			// inherit calls from otherMaster TODO
+			if (otherMasterState.OwnId < worldview.OwnId) {
+				
+			} else if (otherMasterState.OwnId > worldview.OwnId) {
+				if (isCallsSubset(slave.Calls{HallCalls: worldview.HallCalls, CabCalls: worldview.CabCalls},
+								  slave.Calls{HallCalls: otherMasterState.HallCalls, CabCalls: otherMasterState.CabCalls})) {
+					endMasterPhase <- struct{}{}
+				}
+			} 
+			
 			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 
 		}
 		stateToBackup <- deepcopy.Copy(worldview).(slave.WorldView)
 	}
+}
+
+// returns true if calls1 is a subset of calls2
+func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
+	for i := 0; i < config.N_ELEVATORS; i++ {
+		for j := 0; j < config.N_FLOORS; j++ {
+			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
+				return false
+			}
+		}
+	}
+	for i := 0; i < config.N_FLOORS; i++ {
+		for j := 0; j < config.N_BUTTONS-1; j++ {
+			if calls1.HallCalls[i][j] && !calls2.HallCalls[i][j] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// this is supposed to be some union function
+func adhdhd(calls1 slave.Calls, calls2 slave.Calls) bool {
+	for i := 0; i < config.N_ELEVATORS; i++ {
+		for j := 0; j < config.N_FLOORS; j++ {
+			calls1.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
+		}
+	}
+	for i := 0; i < config.N_FLOORS; i++ {
+		for j := 0; j < config.N_BUTTONS-1; j++ {
+			calls1.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
+		}
+	}
+	return true
 }

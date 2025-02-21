@@ -76,14 +76,14 @@ mainLoop:
 func sameCalls(calls1 slave.Calls, calls2 slave.Calls) bool {
 	for i := 0; i < config.N_ELEVATORS; i++ {
 		for j := 0; j < config.N_FLOORS; j++ {
-			if calls1.CabCalls[i][j] != calls1.CabCalls[i][j] {
+			if calls1.CabCalls[i][j] != calls2.CabCalls[i][j] {
 				return false
 			}
 		}
 	}
 	for i := 0; i < config.N_FLOORS; i++ {
 		for j := 0; j < config.N_BUTTONS-1; j++ {
-			if calls1.HallCalls[i][j] != calls1.HallCalls[i][j] {
+			if calls1.HallCalls[i][j] != calls2.HallCalls[i][j] {
 				return false
 			}
 		}
