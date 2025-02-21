@@ -40,7 +40,7 @@ func receiver(ordersRx chan [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx ch
 		msg = <-rx
 		if msg != prevMsg {
 			prevMsg = msg
-			ordersRx <- msg[ID]
+			ordersRx <- msg[ID-1]
 			//I assume there's an easier way to do this, but I need to loop through to get all active orders before sending out
 			lights := [config.N_FLOORS][config.N_BUTTONS]bool{}
 			lights[0:config.N_FLOORS][elevio.BT_Cab] = msg[ID][0:config.N_FLOORS][elevio.BT_Cab]

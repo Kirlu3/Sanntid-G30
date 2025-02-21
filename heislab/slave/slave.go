@@ -7,7 +7,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
-const ID = 0
+const ID = 1
 
 func Slave() {
 	//initialize channels
