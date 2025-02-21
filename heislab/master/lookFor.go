@@ -1,23 +1,22 @@
 package master
 
 import (
-	"slices"
-
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
+	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 // consider using the masterWorldViewRx instead
-func lookForOtherMasters(endMasterPhase chan struct{}, masterUpdateCh chan peers.PeerUpdate, ownId string) {
+func lookForOtherMasters(endMasterPhase chan struct{}, masterWorldViewRx chan slave.WorldView, ownId string) {
 	// lookForMastersLoop:
 	for {
 		select {
-		case masterUpdate := <-masterUpdateCh:
-			if slices.Min(masterUpdate.Peers) < ownId {
+		case masterWorldView := <-masterWorldViewRx:
+			if masterWorldView.OwnId < ownId {
 				// end the master phase, but the other master needs to get our state first!
-			}
-			if slices.Max(masterUpdate.Peers) > ownId {
+				// end if the other master sends a state that we find acceptable
+			} else if masterWorldView.OwnId > ownId {
 				// make sure the stateManager gets the mergeState message
-			}
+				// make sure out state is acceptable so the other master can end
+			} // if ids are equal we received our own message
 		}
 	}
 }

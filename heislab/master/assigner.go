@@ -34,17 +34,26 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
-func assignOrders(stateToAssign chan slave.WorldView, orderAssignments chan map[string][config.N_FLOORS][2]bool) {
+
+func assignOrders(stateToAssign <-chan slave.WorldView, toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.Calls) {
+	var state slave.WorldView
 	for {
 		select {
-		case state := <-stateToAssign:
-			fmt.Printf("state: %v\n", state)
-
-			assignments := assign(state)
-
-			orderAssignments <- assignments
+		case state = <-stateToAssign: // as far as assignOrders is concerned it doesnt matter if this comes directly from slaves or through stateManager
+		default:
+			select {
+			case calls := <-callsToAssign:
+				state.CabCalls = calls.CabCalls
+				state.HallCalls = calls.HallCalls
+				
+				fmt.Printf("state: %v\n", state)
+				assignments := assign(state)
+				toSlaveCh <- assignments
+			default:
+			}
 		}
 	}
+
 }
 
 func assign(state slave.WorldView) map[string][config.N_FLOORS][2]bool {

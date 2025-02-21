@@ -26,7 +26,7 @@ func sendStateToBackups(stateToBackup chan slave.WorldView, masterWorldViewTx ch
 }
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(requestBackupAckCh chan slave.Calls, aliveBackupsCh chan []string, lightsToSlave chan slave.Calls, backupWorldViewRx chan slave.WorldView,
+func receiveBackupAck(requestBackupAckCh chan slave.Calls, aliveBackupsCh chan []string, callsToAssign chan slave.Calls, backupWorldViewRx chan slave.WorldView,
 	backupsUpdateCh chan peers.PeerUpdate) {
 	var aliveBackups []string
 	// updating the peers
@@ -68,7 +68,7 @@ mainLoop:
 				continue mainLoop
 			}
 		}
-		lightsToSlave <- calls
+		callsToAssign <- calls // orders to assign
 	}
 }
 
