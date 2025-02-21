@@ -95,7 +95,7 @@ func transformInput(state slave.WorldView) []byte { // transforms from WorldView
 	// adding all non-stuck and alive elevators to the state map
 	for i := 0; i < len(state.Elevators); i++ {
 		if !state.Elevators[i].Stuck && state.AliveElevators[i] {
-			input.States[state.Elevators[i].Id] = HRAElevState{
+			input.States[strconv.Itoa(state.Elevators[i].ID)] = HRAElevState{
 				Floor:       state.Elevators[i].Floor,
 				Behavior:    behaviorMap[state.Elevators[i].Behaviour],
 				Direction:   directionMap[state.Elevators[i].Direction],
