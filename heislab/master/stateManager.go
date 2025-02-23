@@ -40,10 +40,9 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS][config.N_BUTTONS - 1]bool),
 					CabCalls:  deepcopy.Copy(worldview.CabCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
 				}
-				break
 
 			case slave.FloorArrival:
-				fmt.Println("Floor Arrival Event")
+				fmt.Println("SM: Floor Arrival Event")
 
 				oldElevator := worldview.Elevators[slaveId]
 				worldview.Elevators[slaveId] = slaveMessage.Elevator // i think it makes sense to update the whole state, again consider deepcopy
@@ -55,7 +54,7 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 					//Updates cab orders:
 					worldview.CabCalls[slaveId][newElevator.Floor] = newElevator.Requests[newElevator.Floor][elevio.BT_Cab]
 					//Clears hall orders:
-					for btn := 0; btn < config.N_BUTTONS-1; btn++ {
+					for btn := range config.N_BUTTONS - 1 {
 						//If the orders are different, prioritize the new ones
 						if oldElevator.Requests[newElevator.Floor][btn] != newElevator.Requests[newElevator.Floor][btn] {
 							worldview.HallCalls[newElevator.Floor][btn] = newElevator.Requests[newElevator.Floor][btn]
@@ -73,7 +72,6 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 
 				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
-				break
 
 			default:
 				panic("invalid message event from slave")
@@ -111,15 +109,15 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 
 // returns true if calls1 is a subset of calls2
 func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
-	for i := 0; i < config.N_ELEVATORS; i++ {
-		for j := 0; j < config.N_FLOORS; j++ {
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
 			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
 				return false
 			}
 		}
 	}
-	for i := 0; i < config.N_FLOORS; i++ {
-		for j := 0; j < config.N_BUTTONS-1; j++ {
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
 			if calls1.HallCalls[i][j] && !calls2.HallCalls[i][j] {
 				return false
 			}
@@ -130,13 +128,13 @@ func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
 
 // this is supposed to be some union function
 func adhdhd(calls1 slave.Calls, calls2 slave.Calls) bool {
-	for i := 0; i < config.N_ELEVATORS; i++ {
-		for j := 0; j < config.N_FLOORS; j++ {
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
 			calls1.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
 		}
 	}
-	for i := 0; i < config.N_FLOORS; i++ {
-		for j := 0; j < config.N_BUTTONS-1; j++ {
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
 			calls1.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
 		}
 	}

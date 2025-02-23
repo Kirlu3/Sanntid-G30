@@ -25,8 +25,9 @@ func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int)
 	var msgID int
 	for msg := range rx {
 		ack <- msg.MsgID
+		fmt.Println("ST: Sent Ack")
 		if msg.MsgID != msgID {
-			println("Received new message")
+			println("ST: Received new message")
 			msgID = msg.MsgID
 			slaveUpdate <- msg
 		}

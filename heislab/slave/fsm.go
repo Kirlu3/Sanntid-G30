@@ -24,13 +24,10 @@ func fsm_onInit(elevator Elevator) Elevator {
 }
 
 func fsm_onRequests(elevator Elevator) Elevator {
-	fmt.Println("onRequestButtonPress")
+	fmt.Println("onRequest")
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
 		elevator = Requests_clearAtCurrentFloor(elevator)
-		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
-		elevator.Direction = pair.Direction
-		elevator.Behaviour = pair.Behaviour
 	case EB_Moving:
 	case EB_Idle:
 		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
@@ -50,7 +47,7 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
 	case EB_Moving:
-		if Requests_shouldStop(elevator) {
+		if Requests_shouldStop(elevator) { //This causes the door to open on init, probably fine?
 			elevator = Requests_clearAtCurrentFloor(elevator)
 			elevator.Behaviour = EB_DoorOpen
 		}
@@ -58,7 +55,6 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	return elevator
 }
 
-// not implemented yet
 func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	elevator.Stuck = obstruction
 	return elevator
@@ -69,16 +65,18 @@ func fsm_onStopButtonPress() {
 }
 
 func fsm_onTimerEnd(elevator Elevator) Elevator {
-	fmt.Println("onTimerEnd")
 
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
+		fmt.Println("FSM:onTimerEnd DO")
+
 		if !elevator.Stuck {
 			var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
 			elevator.Direction = pair.Direction
 			elevator.Behaviour = pair.Behaviour
 		}
 	case EB_Moving:
+		fmt.Println("FSM:onTimerEnd M")
 		elevator.Stuck = true
 	}
 	return elevator

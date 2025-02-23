@@ -1,6 +1,7 @@
 package slave
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -48,19 +49,23 @@ func Slave(id string) {
 	//send initial state to master
 	//main loop (too long?)
 	for {
+		fmt.Println("FSM:New Loop")
 		select {
 		case msg := <-ordersRx:
 			elevator.Requests = msg
 			n_elevator = fsm_onRequests(elevator)
 			if validElevator(n_elevator) {
+				//If an order was cleared, master should get a message (if behavior = door?)
 				activateIO(n_elevator, elevator, t_start)
 				elevator = n_elevator
-				//should master get a message here?
 			}
 		case msg := <-lightsRx:
+			fmt.Println("Slave: Updating lights")
 			updateLights(msg)
 		case btn := <-drv_buttons: //button press
+			fmt.Println("Slave: Button press")
 			tx <- EventMessage{0, elevator, Button, btn, false} //send message to master
+			fmt.Println("Slave: Button press sent")
 
 		case floor := <-drv_floors:
 			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
@@ -68,9 +73,11 @@ func Slave(id string) {
 				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
 					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}, n_elevator.Stuck} //send message to master
 				}
-				activateIO(n_elevator, elevator, t_start)                                  //activate IO
+				activateIO(n_elevator, elevator, t_start) //activate IO
+				fmt.Println("FSM: Floor: Activated IO")
 				elevator = n_elevator                                                      //update elevator
 				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}, false} //send message to master
+				fmt.Println("FSM: Completed floor arrival")
 			}
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)

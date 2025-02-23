@@ -47,9 +47,9 @@ func assignOrders(stateToAssign <-chan slave.WorldView, toSlaveCh chan [config.N
 				state.CabCalls = calls.CabCalls
 				state.HallCalls = calls.HallCalls
 
-				fmt.Printf("state: %v\n", state)
+				//fmt.Printf("state: %v\n", state)
 				assignments := assign(state)
-				fmt.Printf("assigned:%v\n", assignments)
+				//fmt.Printf("assigned:%v\n", assignments)
 				toSlaveCh <- assignments
 				fmt.Println("As:Succeded")
 			default:
@@ -107,8 +107,6 @@ func transformInput(state slave.WorldView) []byte { // transforms from WorldView
 	}
 
 	inputJsonFormat, errMarsial := json.Marshal(input)
-
-	fmt.Println("Json input: ", input)
 
 	if errMarsial != nil {
 		fmt.Println("Error using json.Marshal: ", errMarsial)

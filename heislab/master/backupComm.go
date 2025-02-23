@@ -52,7 +52,6 @@ mainLoop:
 		select {
 		case calls = <-requestBackupAckCh: // when we receive new calls reset all acks
 			newCalls = true
-			fmt.Println("BC: Requested Ack")
 			for i := range acksReceived {
 				acksReceived[i] = false
 			}
@@ -76,7 +75,6 @@ mainLoop:
 		if newCalls {
 			fmt.Println("BC: Sending calls")
 			callsToAssign <- calls // orders to assign
-			fmt.Println("BC: complete")
 			newCalls = false
 		}
 	}
