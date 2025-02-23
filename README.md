@@ -6,3 +6,5 @@ TODO:
 -Add channel directions to *every* function
 -Add comments to *every* function
     -Stuff like output and input and purpose
+
+-Watchdog with program that restarts on a crash (would fix the occasional crashes on startup)
