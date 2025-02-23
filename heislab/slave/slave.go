@@ -58,6 +58,9 @@ func Slave(id string) {
 				//If an order was cleared, master should get a message (if behavior = door?)
 				activateIO(n_elevator, elevator, t_start)
 				elevator = n_elevator
+				if elevator.Behaviour == EB_DoorOpen {
+					tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}, false} //send message to master
+				}
 			}
 		case msg := <-lightsRx:
 			fmt.Println("Slave: Updating lights")

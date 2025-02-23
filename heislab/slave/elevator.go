@@ -24,7 +24,7 @@ type Elevator struct {
 	Requests  [config.N_FLOORS][config.N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
 	Stuck     bool
-	ID        int		//ID int vs Id string ???
+	ID        int //ID int vs Id string ???
 }
 
 // type ExpandedElevator struct {

@@ -1,6 +1,8 @@
 package slave
 
 import (
+	"fmt"
+
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
@@ -124,5 +126,6 @@ func Requests_clearAtCurrentFloor(elevator Elevator) Elevator {
 		elevator.Requests[elevator.Floor][elevio.BT_HallUp] = false
 		elevator.Requests[elevator.Floor][elevio.BT_HallDown] = false
 	}
+	fmt.Println("Cleared at current floor:", elevator.Requests)
 	return elevator
 }

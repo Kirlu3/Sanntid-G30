@@ -33,8 +33,7 @@ func fsm_onRequests(elevator Elevator) Elevator {
 		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
 		elevator.Direction = pair.Direction
 		elevator.Behaviour = pair.Behaviour
-		switch elevator.Behaviour {
-		case EB_DoorOpen:
+		if elevator.Behaviour == EB_DoorOpen {
 			elevator = Requests_clearAtCurrentFloor(elevator)
 		}
 	}

@@ -35,7 +35,7 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
-func assignOrders(stateToAssign <-chan slave.WorldView, toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.Calls) {
+func assignOrders(stateToAssign <-chan slave.WorldView, assignedRequests chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.Calls) {
 	var state slave.WorldView
 	for {
 		select {
@@ -50,7 +50,7 @@ func assignOrders(stateToAssign <-chan slave.WorldView, toSlaveCh chan [config.N
 				//fmt.Printf("state: %v\n", state)
 				assignments := assign(state)
 				//fmt.Printf("assigned:%v\n", assignments)
-				toSlaveCh <- assignments
+				assignedRequests <- assignments
 				fmt.Println("As:Succeded")
 			default:
 			}

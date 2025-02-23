@@ -66,9 +66,10 @@ mainLoop:
 			default:
 			}
 		}
+		//This line is the one that crashes: could consider changing from string ID to int ID?
 		for _, backup := range aliveBackups { // if all the alive backups have given acks send light message to slave
 			i, _ := strconv.Atoi(backup)
-			if acksReceived[i] == false {
+			if !acksReceived[i] {
 				continue mainLoop
 			}
 		}

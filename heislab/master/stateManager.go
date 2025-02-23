@@ -11,14 +11,20 @@ import (
 )
 
 // it is important that this function doesnt block
-func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}, slaveUpdate chan slave.EventMessage, backupUpdate chan []string,
-	mergeState chan slave.WorldView, stateToBackup chan slave.WorldView, aliveBackupsCh chan []string, requestBackupAck chan slave.Calls,
-	stateToAssign chan slave.WorldView, endMasterPhase chan<- struct{}) {
+func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct{}, slaveUpdate <-chan slave.EventMessage, backupUpdate <-chan []string,
+	mergeState <-chan slave.WorldView, stateToBackup chan<- slave.WorldView, aliveBackupsCh <-chan []string, requestBackupAck chan<- slave.Calls,
+	stateToAssign chan<- slave.WorldView, assignedRequests <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, toSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	endMasterPhase chan<- struct{}) {
 	// aliveBackups might be redundant
 	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
 	for {
 		fmt.Println("SM:New Loop")
 		select {
+		case assignments := <-assignedRequests: //updates state in worldview before sending out requests
+			for elev := range config.N_ELEVATORS {
+				worldview.Elevators[elev].Requests = assignments[elev]
+			}
+			toSlaveCh <- assignments
 		case <-requestAssignment:
 			fmt.Println("SM:reassignment")
 			stateToAssign <- worldview
@@ -51,11 +57,12 @@ func stateManager(initWorldview slave.WorldView, requestAssignment chan struct{}
 				switch slaveMessage.Elevator.Behaviour {
 				//If the elevator arrived at a floor and opened its door, it has cleared some unkown orders at that floor
 				case slave.EB_DoorOpen:
+					fmt.Println("SM: Clearing orders")
 					//Updates cab orders:
 					worldview.CabCalls[slaveId][newElevator.Floor] = newElevator.Requests[newElevator.Floor][elevio.BT_Cab]
 					//Clears hall orders:
 					for btn := range config.N_BUTTONS - 1 {
-						//If the orders are different, prioritize the new ones
+						//If the orders are different, prioritize the new ones, TODO: deal with if the elevator immediately cleared
 						if oldElevator.Requests[newElevator.Floor][btn] != newElevator.Requests[newElevator.Floor][btn] {
 							worldview.HallCalls[newElevator.Floor][btn] = newElevator.Requests[newElevator.Floor][btn]
 						}
