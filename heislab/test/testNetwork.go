@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"flag"
@@ -20,7 +20,7 @@ type HelloMsg struct {
 	Iter    int
 }
 
-func main() {
+func network() {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
 	var id string
