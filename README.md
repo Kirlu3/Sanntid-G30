@@ -8,3 +8,5 @@ TODO:
     -Stuff like output and input and purpose
 
 -Watchdog with program that restarts on a crash (would fix the occasional crashes on startup)
+
+-Change config to include everything necessary, including: Base IP
