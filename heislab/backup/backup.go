@@ -77,7 +77,9 @@ func Backup(id string) {
 			case a := <-masterWorldViewRx:
 				fmt.Printf("Received: %#v\n", a)
 				if len(masterUpdate.Peers) > 0 && a.OwnId == masterUpdate.Peers[0] {
-					worldView.Elevators = a.Elevators // i have no idea if this is ok or if we get shallow copy problems with slices
+					worldView.CabCalls = a.CabCalls
+					worldView.HallCalls = a.HallCalls
+
 				} else {
 					fmt.Println("received master state from not the master")
 				}

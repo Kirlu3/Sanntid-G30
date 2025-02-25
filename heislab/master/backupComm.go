@@ -45,7 +45,7 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh chan peers.P
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
 func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.Calls, backupWorldViewRx <-chan slave.WorldView) {
 	ID, _ := strconv.Atoi(OwnId)
-	var aliveBackups []string = <- aliveBackupsCh
+	var aliveBackups []string = <-aliveBackupsCh
 	var acksReceived [config.N_ELEVATORS]bool
 	var calls slave.Calls
 	newCalls := false
@@ -64,6 +64,7 @@ mainLoop:
 		select {
 		case a := <-backupWorldViewRx: // set ack for backup if it has the same calls
 			if (sameCalls(slave.Calls{HallCalls: a.HallCalls, CabCalls: a.CabCalls}, calls)) {
+				fmt.Println("new backup state")
 				i, _ := strconv.Atoi(a.OwnId)
 				acksReceived[i] = true
 			}
