@@ -92,6 +92,8 @@ func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct
 				i, _ := strconv.Atoi(aliveIdx)
 				worldview.AliveElevators[i] = true
 			}
+			ownId, _ := strconv.Atoi(worldview.OwnId)
+			worldview.AliveElevators[ownId] = true
 			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 			// maybe forward the update to receiveBackupAck on aliveBackups channel
 
@@ -99,7 +101,6 @@ func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct
 			fmt.Printf("otherMasterState: %v\n", otherMasterState)
 			// inherit calls from otherMaster TODO
 			if otherMasterState.OwnId > worldview.OwnId {
-
 			} else if otherMasterState.OwnId < worldview.OwnId {
 				if (isCallsSubset(slave.Calls{HallCalls: worldview.HallCalls, CabCalls: worldview.CabCalls},
 					slave.Calls{HallCalls: otherMasterState.HallCalls, CabCalls: otherMasterState.CabCalls})) {
