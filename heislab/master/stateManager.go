@@ -98,9 +98,9 @@ func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct
 		case otherMasterState := <-mergeState:
 			fmt.Printf("otherMasterState: %v\n", otherMasterState)
 			// inherit calls from otherMaster TODO
-			if otherMasterState.OwnId < worldview.OwnId {
+			if otherMasterState.OwnId > worldview.OwnId {
 
-			} else if otherMasterState.OwnId > worldview.OwnId {
+			} else if otherMasterState.OwnId < worldview.OwnId {
 				if (isCallsSubset(slave.Calls{HallCalls: worldview.HallCalls, CabCalls: worldview.CabCalls},
 					slave.Calls{HallCalls: otherMasterState.HallCalls, CabCalls: otherMasterState.CabCalls})) {
 					endMasterPhase <- struct{}{}

@@ -26,7 +26,9 @@ func sendStateToBackups(stateToBackup chan slave.WorldView, masterWorldViewTx ch
 }
 
 func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh chan peers.PeerUpdate) {
-	var aliveBackups []string
+	a := <-backupsUpdateCh
+	var aliveBackups []string = a.Peers
+	aliveBackupsCh <- aliveBackups
 	for {
 		a := <-backupsUpdateCh
 		fmt.Printf("Backups update:\n")
@@ -43,7 +45,7 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh chan peers.P
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
 func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.Calls, backupWorldViewRx <-chan slave.WorldView) {
 	ID, _ := strconv.Atoi(OwnId)
-	var aliveBackups []string
+	var aliveBackups []string = <- aliveBackupsCh
 	var acksReceived [config.N_ELEVATORS]bool
 	var calls slave.Calls
 	newCalls := false
