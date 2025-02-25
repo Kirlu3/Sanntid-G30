@@ -35,8 +35,8 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	receiveMessagesFromSlaves(slaveUpdate) //starts other go routines
 	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackupsCh, requestBackupAck, stateToAssign, assignedRequests, toSlaveCh, endMasterPhase)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
-	// go trackAliveBackups(backupUpdate, backupsUpdateCh)
-	go receiveBackupAck(initWorldview.OwnId, requestBackupAck, aliveBackupsCh, callsToAssign, backupWorldViewRx, backupsUpdateCh)
+	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
+	go receiveBackupAck(initWorldview.OwnId, requestBackupAck, aliveBackupsCh, callsToAssign, backupWorldViewRx)
 	go assignOrders(stateToAssign, assignedRequests, callsToAssign) // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
 	go sendMessagesToSlaves(toSlaveCh)                              // orders (+ lights?) ??
 	go lookForOtherMasters(endMasterPhase, masterWorldViewRx, initWorldview.OwnId, mergeState)

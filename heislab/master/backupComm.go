@@ -25,25 +25,25 @@ func sendStateToBackups(stateToBackup chan slave.WorldView, masterWorldViewTx ch
 
 }
 
+func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh chan peers.PeerUpdate) {
+	var aliveBackups []string
+	for {
+		a := <-backupsUpdateCh
+		fmt.Printf("Backups update:\n")
+		fmt.Printf("  Backups:    %q\n", a.Peers)
+		fmt.Printf("  New:        %q\n", a.New)
+		fmt.Printf("  Lost:       %q\n", a.Lost)
+		aliveBackups = a.Peers
+		if len(a.Lost) != 0 || a.New != "" {
+			aliveBackupsCh <- aliveBackups
+		}
+	}
+}
+
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(OwnId string, requestBackupAckCh chan slave.Calls, aliveBackupsCh chan []string, callsToAssign chan slave.Calls, backupWorldViewRx chan slave.WorldView,
-	backupsUpdateCh chan peers.PeerUpdate) {
+func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, callsToAssign chan<- slave.Calls, backupWorldViewRx <-chan slave.WorldView) {
 	ID, _ := strconv.Atoi(OwnId)
 	var aliveBackups []string
-	// updating the peers
-	go func() {
-		for {
-			a := <-backupsUpdateCh
-			fmt.Printf("Backups update:\n")
-			fmt.Printf("  Backups:    %q\n", a.Peers)
-			fmt.Printf("  New:        %q\n", a.New)
-			fmt.Printf("  Lost:       %q\n", a.Lost)
-			aliveBackups = a.Peers
-			if len(a.Lost) != 0 || a.New != "" {
-				aliveBackupsCh <- aliveBackups
-			}
-		}
-	}()
 	var acksReceived [config.N_ELEVATORS]bool
 	var calls slave.Calls
 	newCalls := false
@@ -57,17 +57,23 @@ mainLoop:
 			}
 			acksReceived[ID] = true
 		default:
-			select {
-			case a := <-backupWorldViewRx: // set ack for backup if it has the same calls
-				if (sameCalls(slave.Calls{HallCalls: a.HallCalls, CabCalls: a.CabCalls}, calls)) {
-					i, _ := strconv.Atoi(a.OwnId)
-					acksReceived[i] = true
-				}
-			default:
-			}
 		}
-		//This line is the one that crashes: could consider changing from string ID to int ID?
-		for _, backup := range aliveBackups { // if all the alive backups have given acks send light message to slave
+
+		select {
+		case a := <-backupWorldViewRx: // set ack for backup if it has the same calls
+			if (sameCalls(slave.Calls{HallCalls: a.HallCalls, CabCalls: a.CabCalls}, calls)) {
+				i, _ := strconv.Atoi(a.OwnId)
+				acksReceived[i] = true
+			}
+		default:
+		}
+
+		select {
+		case aliveBackups = <-aliveBackupsCh: 
+		default:
+		}
+
+		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
 			i, _ := strconv.Atoi(backup)
 			if !acksReceived[i] {
 				continue mainLoop
@@ -81,7 +87,7 @@ mainLoop:
 	}
 }
 
-// returns true if two Calls structs are the same
+// returns true if two Calls structs are the same, might not be necessary, i think go can compare the structs directly with calls1 == calls2, look into this
 func sameCalls(calls1 slave.Calls, calls2 slave.Calls) bool {
 	for i := 0; i < config.N_ELEVATORS; i++ {
 		for j := 0; j < config.N_FLOORS; j++ {
