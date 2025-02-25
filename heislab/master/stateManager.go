@@ -17,6 +17,10 @@ func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct
 	endMasterPhase chan<- struct{}) {
 	// aliveBackups might be redundant
 	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
+
+	ownId, _ := strconv.Atoi(worldview.OwnId)
+	worldview.AliveElevators[ownId] = true
+
 	for {
 		fmt.Println("SM:New Loop")
 		select {

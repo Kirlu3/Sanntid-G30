@@ -1,11 +1,12 @@
 package peers
 
 import (
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/conn"
 	"fmt"
 	"net"
 	"sort"
 	"time"
+
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/conn"
 )
 
 type PeerUpdate struct {

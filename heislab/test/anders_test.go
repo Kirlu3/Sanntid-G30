@@ -39,7 +39,7 @@ func TestListenBackupMasterUpdate(t *testing.T) {
 	go peers.Receiver(config.BackupsUpdatePort, backupUpdateCh)
 
 	for {
-		time.Sleep(1*time.Second)
+		time.Sleep(100 * time.Millisecond)
 		select {
 		case p := <-masterUpdateCh:
 			fmt.Printf("master update:\n")
@@ -62,7 +62,6 @@ func TestListenMasterUpdate(t *testing.T) {
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 
 	for {
-		time.Sleep(1*time.Second)
 		select {
 		case p := <-masterUpdateCh:
 			fmt.Printf("master update:\n")
@@ -79,7 +78,7 @@ func TestListenBackupUpdate(t *testing.T) {
 	go peers.Receiver(config.BackupsUpdatePort, backupUpdateCh)
 
 	for {
-		time.Sleep(1*time.Second)
+		time.Sleep(1 * time.Second)
 		select {
 		case p := <-backupUpdateCh:
 			fmt.Printf("backup update:\n")
