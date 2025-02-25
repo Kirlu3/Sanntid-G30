@@ -71,6 +71,7 @@ func Slave(id string) {
 			fmt.Println("Slave: Button press sent")
 
 		case floor := <-drv_floors:
+			fmt.Println(floor)
 			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
 			if validElevator(n_elevator) {                   //check if the new elevator is valid
 				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed

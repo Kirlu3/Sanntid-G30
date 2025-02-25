@@ -22,6 +22,7 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	mergeState := make(chan slave.WorldView)                                                   // lookForOtherMasters -> stateManager
 	stateToBackup := make(chan slave.WorldView)                                                // stateManager -> sendStateToBackups
 	aliveBackupsCh := make(chan []string)                                                      // stateManager -> receiveBackupAck
+	aliveBackupsToManagerCh := make(chan []string)                                                      // stateManager -> receiveBackupAck
 	requestBackupAck := make(chan slave.Calls)                                                 // stateManager -> receiveBackupAck
 	stateToAssign := make(chan slave.WorldView)                                                // stateManager -> assignOrders
 	endMasterPhase := make(chan struct{})                                                      // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
@@ -33,10 +34,10 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 
 	// change in state happens when: message is received from slave, alive signal is lost from backup, mergeMaster
 	receiveMessagesFromSlaves(slaveUpdate) //starts other go routines
-	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackupsCh, requestBackupAck, stateToAssign, assignedRequests, toSlaveCh, endMasterPhase)
+	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackupsToManagerCh, requestBackupAck, stateToAssign, assignedRequests, toSlaveCh, endMasterPhase)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
 	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
-	go receiveBackupAck(initWorldview.OwnId, requestBackupAck, aliveBackupsCh, callsToAssign, backupWorldViewRx)
+	go receiveBackupAck(initWorldview.OwnId, requestBackupAck, aliveBackupsCh, aliveBackupsToManagerCh, callsToAssign, backupWorldViewRx)
 	go assignOrders(stateToAssign, assignedRequests, callsToAssign) // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
 	go sendMessagesToSlaves(toSlaveCh)                              // orders (+ lights?) ??
 	go lookForOtherMasters(endMasterPhase, masterWorldViewRx, initWorldview.OwnId, mergeState)
