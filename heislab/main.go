@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/Kirlu3/Sanntid-G30/heislab/backup"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
@@ -8,7 +10,7 @@ import (
 )
 
 func main() {
-	id := "2"
+	id := os.Args[1:][0]
 	N_FLOORS := 4
 	elevio.Init("localhost:15657", N_FLOORS)
 	go slave.Slave(id)
