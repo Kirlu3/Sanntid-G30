@@ -34,8 +34,8 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Stop: "stop",
 	slave.D_Up:   "up",
 }
-
-func assignOrders(stateToAssign <-chan slave.WorldView, assignedRequests chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.AssignCalls) {
+func assignOrders(stateUpdateCh , callsToAssignCh, assignmentsToSlaveCh) {
+// func assignOrders(stateToAssign <-chan slave.WorldView, assignedRequests chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.AssignCalls) {
 	var state slave.WorldView
 	for {
 		select {

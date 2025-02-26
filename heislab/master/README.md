@@ -23,3 +23,6 @@ is this ok? objections?
 in general if you have any objections to the data format and the way stuff is passed around it should be adressed asap, because it would be very annoying to change later
 
 some places maybe buffered channels would be good to prevent blocking
+
+
+Want reassignment on: callUpdate, backupUpdate, anything else??

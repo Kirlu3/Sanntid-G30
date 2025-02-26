@@ -83,7 +83,7 @@ func Backup(id string) {
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls, masterCallsTx, masterCallsRx, backupCallsRx, masterTxEnable, masterUpdateCh, backupsUpdateCh)
+			master.Master(calls, masterCallsTx, masterCallsRx, backupCallsRx, masterTxEnable, backupsUpdateCh)
 			backupsTxEnable <- true
 			masterUpgradeCooldown.Reset(time.Second * 2)
 		}

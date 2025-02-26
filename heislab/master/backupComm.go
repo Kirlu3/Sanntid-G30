@@ -11,13 +11,11 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-func backupsTx(stateToBackup <-chan slave.WorldView, masterCallsTx chan<- slave.BackupCalls, initCalls slave.BackupCalls) {
+func backupsTx(callsToBackupsCh <-chan slave.Calls, masterCallsTx chan<- slave.BackupCalls, initCalls slave.BackupCalls) {
 	calls := deepcopy.Copy(initCalls).(slave.BackupCalls)
 	for {
 		select {
-		case worldview := <-stateToBackup:
-			calls.Calls.CabCalls = worldview.CabCalls
-			calls.Calls.HallCalls = worldview.HallCalls
+		case calls.Calls = <-callsToBackupsCh:
 			masterCallsTx <- calls
 		case <-time.After(config.MasterMessagePeriodSeconds):
 			masterCallsTx <- calls
@@ -27,9 +25,9 @@ func backupsTx(stateToBackup <-chan slave.WorldView, masterCallsTx chan<- slave.
 }
 
 func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers.PeerUpdate) {
-	a := <-backupsUpdateCh
-	var aliveBackups []string = a.Peers
-	aliveBackupsCh <- aliveBackups
+	// a := <-backupsUpdateCh
+	var aliveBackups []string
+	// aliveBackupsCh <- aliveBackups
 	for {
 		a := <-backupsUpdateCh
 		fmt.Printf("Backups update:\n")
@@ -44,22 +42,40 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers
 }
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.AssignCalls, backupCallsRx <-chan slave.BackupCalls) {
-	ID, _ := strconv.Atoi(OwnId)
-	var aliveBackups []string = <-aliveBackupsCh
-	aliveBackupsToManagerCh <- aliveBackups
+func backupAckRx(
+	callsUpdateCh <-chan slave.Calls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
+	callsToAssignCh chan<- slave.AssignCalls,
+	initCalls slave.BackupCalls,
+	masterCallsTx chan<- slave.BackupCalls,
+	masterCallsRx <-chan slave.BackupCalls,
+	backupCallsRx <-chan slave.BackupCalls,
+	backupsUpdateCh <-chan peers.PeerUpdate,
+) {
+	Id := initCalls.Id
+
+	otherMasterCallsCh := make(chan slave.BackupCalls)
+	aliveBackupsCh := make(chan []string)
+	callsToBackupsCh := make(chan slave.Calls)
+
+	// for all channels consider if it is nicer to start them here or in master()
+	go lookForOtherMasters(otherMasterCallsCh, Id, masterCallsRx)
+	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
+	go backupsTx(callsToBackupsCh, masterCallsTx, deepcopy.Copy(initCalls).(slave.BackupCalls))
+
+	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
-	var calls slave.Calls
-	newCalls := false
+	calls := deepcopy.Copy(initCalls).(slave.Calls)
+	wantReassignment := false
 mainLoop:
 	for {
 		select {
-		case calls = <-requestBackupAckCh: // when we receive new calls reset all acks
-			newCalls = true
+		case callsUpdate := <-callsUpdateCh: // when we receive new calls reset all acks, THE LOGIC HERE WILL BE MORE COMPLICATED NOW
+			calls = updatedCalls(calls, callsUpdate) //TODO: make this function
+			wantReassignment = true
 			for i := range acksReceived {
 				acksReceived[i] = false
 			}
-			acksReceived[ID] = true
+			acksReceived[Id] = true
 		default:
 		}
 
@@ -74,7 +90,7 @@ mainLoop:
 
 		select {
 		case aliveBackups = <-aliveBackupsCh:
-			// aliveBackupsToManagerCh <- aliveBackups // oh wtf BEGGING FOR A DEADLOCK // SOLUTION: DONT SEND ALIVE TO STATEMANAGER
+			wantReassignment = true
 		default:
 		}
 
@@ -84,7 +100,7 @@ mainLoop:
 				continue mainLoop
 			}
 		}
-		if newCalls {
+		if wantReassignment {
 			fmt.Println("BC: Sending calls")
 			var AliveElevators [config.N_ELEVATORS]bool
 			for _, elev := range aliveBackups {
@@ -94,28 +110,9 @@ mainLoop:
 				}
 				AliveElevators[idx] = true
 			}
-			AliveElevators[ID] = true
-			callsToAssign <- slave.AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign, do we ever block here?
-			newCalls = false
+			AliveElevators[Id] = true
+			callsToAssignCh <- slave.AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign, do we ever block here?
+			wantReassignment = false
 		}
 	}
-}
-
-// returns true if two Calls structs are the same, might not be necessary, i think go can compare the structs directly with calls1 == calls2, look into this
-func sameCalls(calls1 slave.Calls, calls2 slave.Calls) bool {
-	for i := 0; i < config.N_ELEVATORS; i++ {
-		for j := 0; j < config.N_FLOORS; j++ {
-			if calls1.CabCalls[i][j] != calls2.CabCalls[i][j] {
-				return false
-			}
-		}
-	}
-	for i := 0; i < config.N_FLOORS; i++ {
-		for j := 0; j < config.N_BUTTONS-1; j++ {
-			if calls1.HallCalls[i][j] != calls2.HallCalls[i][j] {
-				return false
-			}
-		}
-	}
-	return true
 }

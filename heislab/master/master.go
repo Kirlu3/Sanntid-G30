@@ -19,7 +19,6 @@ func Master(
 	masterCallsRx <-chan slave.BackupCalls,
 	backupCallsRx <-chan slave.BackupCalls,
 	masterTxEnable chan<- bool,
-	masterUpdateCh <-chan peers.PeerUpdate,
 	backupsUpdateCh <-chan peers.PeerUpdate,
 ) {
 	masterTxEnable <- true
@@ -30,8 +29,8 @@ func Master(
 	// go slaveCallsRx()
 	// go slaveCallsTx()
 
-	// go backupAckRx()
-	// go assignOrders()
+	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, masterCallsTx, masterCallsRx, backupCallsRx, backupsUpdateCh)
+	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
 
 	// CHANNELS THAT GO ROUTINES WILL COMMUNICATE ON
 	requestAssignment := make(chan struct{})                                                   // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
