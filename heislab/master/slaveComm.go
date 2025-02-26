@@ -2,27 +2,59 @@ package master
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func receiveMessagesFromSlaves(slaveUpdate chan slave.EventMessage) {
-	// receive a message from slave and put it on slaveUpdate
-	var message slave.EventMessage // TODO
-	slaveUpdate <- message
-}
-
-func sendMessagesToSlaves(orderAssignments chan [][]int, lightsToSlave chan slave.Calls) {
-	for {
-		select {
-		case a := <-orderAssignments:
-			fmt.Printf("a: %v\n", a)
-			// for each elevator: send the orders that it has been assigned
-		case s := <-lightsToSlave:
-			fmt.Printf("s: %v\n", s)
-			// send the lights to all the elevators (all lights or only updates? i dont think we have a good way of checking diff because who actually knows what lights are on?
-			// so maybe just send all lights for each elevator)
-		}
-
+func receiveMessagesFromSlaves(slaveUpdate chan<- slave.EventMessage) {
+	for slaveID := 1; slaveID <= config.N_ELEVATORS; slaveID++ {
+		go receiveMessageFromSlave(slaveUpdate, slaveID)
 	}
 }
+
+func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int) {
+	//rx channel for receiving from each slave
+	rx := make(chan slave.EventMessage)
+	go bcast.Receiver(config.SlaveBasePort+slaveID, rx)
+	//ack channel to send an acknowledgment to each slave
+	ack := make(chan int)
+	go bcast.Transmitter(config.SlaveBasePort+slaveID+10, ack)
+	var msgID int
+	for msg := range rx {
+		ack <- msg.MsgID
+		fmt.Println("ST: Sent Ack")
+		if msg.MsgID != msgID {
+			println("ST: Received new message")
+			msgID = msg.MsgID
+			slaveUpdate <- msg
+		}
+	}
+}
+
+func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	go bcast.Transmitter(config.SlaveBasePort-1, tx)
+
+	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	for {
+		//Gives message frequency
+		time.Sleep(time.Millisecond * 5)
+
+		select {
+		case msg = <-toSlaveCh:
+			fmt.Println("ST: New orders sent")
+			fmt.Println(msg)
+			tx <- msg
+		default:
+			tx <- msg
+		}
+	}
+}
+
+/*TODO:
+-Fix what happens if a slave gets an order it immediately completes
+-Consider an event for a slave clearing an order it sent
+	-Solution to above ^ master should know the slave will clear said order*/

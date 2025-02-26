@@ -22,7 +22,6 @@ type HRAInput struct {
 }
 
 
-
 func main(){
 
     hraExecutable := ""

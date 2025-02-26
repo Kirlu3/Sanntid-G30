@@ -2,7 +2,6 @@ package backup
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -15,7 +14,7 @@ import (
 func Backup(id string) {
 	var worldView Slave.WorldView
 	worldView.OwnId = id
-	var backupsUpdate peers.PeerUpdate
+	//var backupsUpdate peers.PeerUpdate
 	var masterUpdate peers.PeerUpdate
 
 	backupsUpdateCh := make(chan peers.PeerUpdate)
@@ -45,6 +44,7 @@ func Backup(id string) {
 	go bcast.Transmitter(config.MasterWorldviewPort, masterWorldViewTx)
 
 	for {
+		backupsTxEnable <- true
 		// send my worldview periodically, should we stop this when we become master? or just create one that runs forever
 		go func() {
 			for {
@@ -52,11 +52,13 @@ func Backup(id string) {
 				time.Sleep(config.BackupMessagePeriodSeconds * time.Second) // how often is message sent?
 			}
 		}()
-
-		fmt.Println("Started")
+		fmt.Println("Backup Started")
 	messageHandlerLoop:
 		for {
 			select {
+			case <-time.After(2 * time.Second):
+				//does this still run if you activate another case?
+				break messageHandlerLoop
 			case masterUpdate = <-masterUpdateCh:
 				fmt.Printf("Master update:\n")
 				fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
@@ -66,25 +68,28 @@ func Backup(id string) {
 					break messageHandlerLoop
 				}
 
-			case backupsUpdate = <-backupsUpdateCh:
-				fmt.Printf("Backups update:\n")
-				fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
-				fmt.Printf("  New:        %q\n", backupsUpdate.New)
-				fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
+			// case backupsUpdate = <-backupsUpdateCh:
+			// fmt.Printf("Backups update:\n")
+			// fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
+			// fmt.Printf("  New:        %q\n", backupsUpdate.New)
+			// fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
 			case a := <-masterWorldViewRx:
 				fmt.Printf("Received: %#v\n", a)
 				if len(masterUpdate.Peers) > 0 && a.OwnId == masterUpdate.Peers[0] {
-					worldView.Elevators = a.Elevators // i have no idea if this is ok or if we get shallow copy problems with slices
+					worldView.CabCalls = a.CabCalls
+					worldView.HallCalls = a.HallCalls
+
 				} else {
 					fmt.Println("received master state from not the master")
 				}
 			}
 		}
 
-		if min(slices.Min(backupsUpdate.Peers)) == id {
-			// close the old channels? it might not be strictly necessary, // TODO fix
-			master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx)
-		}
+		//if min(slices.Min(backupsUpdate.Peers)) == id {
+		// close the old channels? it might not be strictly necessary, // TODO fix
+		//backupsTxEnable <- false // consider this
+		master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx, backupsUpdateCh)
+		//}
 	}
 }

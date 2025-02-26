@@ -3,6 +3,7 @@ package master
 import (
 	"fmt"
 
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
@@ -10,35 +11,36 @@ import (
 type Placeholder int
 
 func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate, masterTxEnable chan bool, masterWorldViewTx chan slave.WorldView,
-	masterWorldViewRx chan slave.WorldView, backupWorldViewRx chan slave.WorldView) {
+	masterWorldViewRx chan slave.WorldView, backupWorldViewRx chan slave.WorldView, backupsUpdateCh chan peers.PeerUpdate) {
 	masterTxEnable <- true
 	fmt.Println(initWorldview.OwnId, " entered master mode")
 
 	// CHANNELS THAT GO ROUTINES WILL COMMUNICATE ON
-	requestAssignment := make(chan struct{})     // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
-	slaveUpdate := make(chan slave.EventMessage) // receiveMessagesFromSlaves -> stateManager
-	backupUpdate := make(chan []string)          // trackAliveBackups -> stateManager
-	mergeState := make(chan slave.WorldView)     // lookForOtherMasters -> stateManager
-	stateToBackup := make(chan slave.WorldView)  // stateManager -> sendStateToBackups
-	aliveBackups := make(chan []string)          // stateManager -> receiveBackupAck
-	requestBackupAck := make(chan slave.Calls)   // stateManager -> receiveBackupAck
-	stateToAssign := make(chan slave.WorldView)  // stateManager -> assignOrders
-	orderAssignments := make(chan [][]int)       // assignOrders -> sendMessagesToSlaves | [][]int wont work, need [][][]int or struct or something
-	lightsToSlave := make(chan slave.Calls)      // receiveBackupAck -> sendMessagesToSlaves
-	endMasterPhase := make(chan struct{})        // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
-
+	requestAssignment := make(chan struct{})                                                   // currently none -> stateManager  | if anyone writes to this channel orders are reassigned, superfluous
+	slaveUpdate := make(chan slave.EventMessage)                                               // receiveMessagesFromSlaves -> stateManager
+	backupUpdate := make(chan []string)                                                        // trackAliveBackups -> stateManager
+	mergeState := make(chan slave.WorldView)                                                   // lookForOtherMasters -> stateManager
+	stateToBackup := make(chan slave.WorldView)                                                // stateManager -> sendStateToBackups
+	aliveBackupsCh := make(chan []string)                                                      // stateManager -> receiveBackupAck
+	aliveBackupsToManagerCh := make(chan []string)                                                      // stateManager -> receiveBackupAck
+	requestBackupAck := make(chan slave.Calls)                                                 // stateManager -> receiveBackupAck
+	stateToAssign := make(chan slave.WorldView)                                                // stateManager -> assignOrders
+	endMasterPhase := make(chan struct{})                                                      // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
+	toSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)        //stateManager -> sendMessagesToSlaves
+	assignedRequests := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) //assignOrders -> stateManager
+	callsToAssign := make(chan slave.Calls)
 	// EXAMPLE OF POSSIBLE THREADS IN MASTER
 	// go establishConnectionsToSlaves() // i have no idea how this is done or if this go routine makes sense
 
 	// change in state happens when: message is received from slave, alive signal is lost from backup, mergeMaster
-	go receiveMessagesFromSlaves(slaveUpdate)
-	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackups, requestBackupAck, stateToAssign)
+	receiveMessagesFromSlaves(slaveUpdate) //starts other go routines
+	go stateManager(initWorldview, requestAssignment, slaveUpdate, backupUpdate, mergeState, stateToBackup, aliveBackupsToManagerCh, requestBackupAck, stateToAssign, assignedRequests, toSlaveCh, endMasterPhase)
 	go sendStateToBackups(stateToBackup, masterWorldViewTx, initWorldview)
-	go trackAliveBackups(backupUpdate)
-	go receiveBackupAck(requestBackupAck, aliveBackups, lightsToSlave, backupWorldViewRx)
-	go assignOrders(stateToAssign, orderAssignments)         // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
-	go sendMessagesToSlaves(orderAssignments, lightsToSlave) // orders (+ lights?)
-	go lookForOtherMasters(endMasterPhase, masterUpdateCh, initWorldview.OwnId)
+	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
+	go receiveBackupAck(initWorldview.OwnId, requestBackupAck, aliveBackupsCh, aliveBackupsToManagerCh, callsToAssign, backupWorldViewRx)
+	go assignOrders(stateToAssign, assignedRequests, callsToAssign) // IMPORTANT: is it ok to assign an unconfirmed order? i think yes
+	go sendMessagesToSlaves(toSlaveCh)                              // orders (+ lights?) ??
+	go lookForOtherMasters(endMasterPhase, masterWorldViewRx, initWorldview.OwnId, mergeState)
 
 	<-endMasterPhase
 	masterTxEnable <- false
@@ -47,3 +49,5 @@ func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate,
 	// does this master/backups structure make sense?
 
 }
+
+//Comment: changed so assigned orders go through the state manager to update the states of the slaves, this should simply allow the slaves to clear orders immediately
