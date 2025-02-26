@@ -44,3 +44,8 @@ type WorldView struct {
 	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
 	AliveElevators [config.N_ELEVATORS]bool
 }
+
+type BackupCalls struct {
+	Calls Calls
+	Id    int
+}

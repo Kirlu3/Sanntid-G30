@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
+	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 func TestNetwork(t *testing.T) {
@@ -88,4 +90,89 @@ func TestListenBackupUpdate(t *testing.T) {
 
 		}
 	}
+}
+
+func TestPeersEnableTx(t *testing.T) {
+	id := "2"
+	masterUpdateCh := make(chan peers.PeerUpdate)
+	masterTxEnable := make(chan bool)
+	go func() {
+		for {
+			select {
+			case p := <-masterUpdateCh:
+				fmt.Printf("master update:\n")
+				fmt.Printf("  Masters:    %q\n", p.Peers)
+				fmt.Printf("  New:      %q\n", p.New)
+				fmt.Printf("  Lost:     %q\n", p.Lost)
+				time.Sleep(time.Millisecond * 20)
+
+			}
+		}
+	}()
+	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
+	// time.Sleep(time.Millisecond*10)
+	// masterTxEnable <- false
+
+	masterTxEnable2 := make(chan bool)
+	go peers.Transmitter(config.MasterUpdatePort, "3", masterTxEnable2)
+	en := false
+	for {
+		time.Sleep(time.Millisecond * 2000)
+		en = !en
+		masterTxEnable2 <- en
+	}
+
+	// time.Sleep(time.Second*30)
+
+}
+
+func TestCtx(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			println("do work 1")
+			time.Sleep(time.Second)
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			println("do work 2")
+			time.Sleep(time.Second)
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			println("do work 3")
+			time.Sleep(time.Second)
+		}
+	}()
+
+	time.Sleep(time.Second * 10)
+	cancel()
+	time.Sleep(time.Second * 10)
+
+}
+
+
+func TestCompareStructs(t *testing.T) {
+	var calls1 slave.BackupCalls
+	var calls2 slave.BackupCalls
+	calls1.Calls.CabCalls[0][0] = false
+	fmt.Println(calls1 == calls2)
 }
