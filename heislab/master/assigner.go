@@ -34,23 +34,36 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Stop: "stop",
 	slave.D_Up:   "up",
 }
-func assignOrders(stateUpdateCh , callsToAssignCh, assignmentsToSlaveCh) {
-// func assignOrders(stateToAssign <-chan slave.WorldView, assignedRequests chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, callsToAssign <-chan slave.AssignCalls) {
-	var state slave.WorldView
+
+func assignOrders(
+	stateUpdateCh <-chan [config.N_ELEVATORS]slave.Elevator,
+	callsToAssignCh <-chan slave.AssignCalls,
+	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+) {
+	var state slave.WorldView // consider waiting for state init
 	for {
 		select {
-		case state = <-stateToAssign: // as far as assignOrders is concerned it doesnt matter if this comes directly from slaves or through stateManager
+		case stateUpdate := <-stateUpdateCh:
+			prevElevators := state.Elevators
+			state.Elevators = stateUpdate
+			for i := range config.N_ELEVATORS {
+				if prevElevators[i].Stuck != state.Elevators[i].Stuck { // reassign if elev has become stuck/unstuck
+					assignments := assign(state)
+					assignmentsToSlaveCh <- assignments
+					break
+				}
+			}
 			fmt.Println("As:Received new states")
 		default:
 			select {
-			case calls := <-callsToAssign:
+			case calls := <-callsToAssignCh:
 				state.CabCalls = calls.Calls.CabCalls
 				state.HallCalls = calls.Calls.HallCalls
 				state.AliveElevators = calls.AliveElevators
 				fmt.Printf("As: state: %v\n", state)
 				assignments := assign(state)
 				//fmt.Printf("assigned:%v\n", assignments)
-				assignedRequests <- assignments
+				assignmentsToSlaveCh <- assignments
 				fmt.Println("As:Succeded")
 			default:
 			}

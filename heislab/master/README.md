@@ -26,3 +26,11 @@ some places maybe buffered channels would be good to prevent blocking
 
 
 Want reassignment on: callUpdate, backupUpdate, anything else??
+
+
+## TODO:
+fix messages between slaveComm and assigner, backupAckRx
+
+fix graceful shutdown of master mode
+
+fix init of fsm (set ligths to 0 maybe?)

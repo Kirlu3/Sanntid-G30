@@ -45,6 +45,7 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers
 func backupAckRx(
 	callsUpdateCh <-chan slave.Calls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
 	callsToAssignCh chan<- slave.AssignCalls,
+	endMasterPhaseCh chan<- struct{},
 	initCalls slave.BackupCalls,
 	masterCallsTx chan<- slave.BackupCalls,
 	masterCallsRx <-chan slave.BackupCalls,
@@ -70,7 +71,7 @@ mainLoop:
 	for {
 		select {
 		case callsUpdate := <-callsUpdateCh: // when we receive new calls reset all acks, THE LOGIC HERE WILL BE MORE COMPLICATED NOW
-			calls = updatedCalls(calls, callsUpdate) //TODO: make this function
+			calls = updatedCalls(calls, callsUpdate) //TODO: calculate the updated calls based on calls and the new message
 			wantReassignment = true
 			for i := range acksReceived {
 				acksReceived[i] = false
