@@ -20,10 +20,10 @@ func Backup(id string) {
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	masterTxEnable := make(chan bool)
 	backupsTxEnable := make(chan bool)
-	masterCallsTx := make(chan Slave.BackupCalls)
-	backupCallsTx := make(chan Slave.BackupCalls)
-	masterCallsRx := make(chan Slave.BackupCalls)
-	backupCallsRx := make(chan Slave.BackupCalls)
+	masterCallsTx := make(chan<- Slave.BackupCalls)
+	backupCallsTx := make(chan<- Slave.BackupCalls)
+	masterCallsRx := make(<-chan Slave.BackupCalls)
+	backupCallsRx := make(<-chan Slave.BackupCalls)
 
 	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
 	masterTxEnable <- false // this is dangerous as we risk briefly claiming to be master even though we are not, it seems as long as it takes less than interval it is fine
@@ -83,7 +83,7 @@ func Backup(id string) {
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls, masterCallsTx, backupCallsRx, masterTxEnable, masterUpdateCh, backupsUpdateCh)
+			master.Master(calls, masterCallsTx, masterCallsRx, backupCallsRx, masterTxEnable, masterUpdateCh, backupsUpdateCh)
 			backupsTxEnable <- true
 			masterUpgradeCooldown.Reset(time.Second * 2)
 		}

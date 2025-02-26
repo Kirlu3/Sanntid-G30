@@ -11,10 +11,20 @@ import (
 )
 
 // it is important that this function doesnt block
-func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct{}, slaveUpdate <-chan slave.EventMessage, backupUpdate <-chan []string,
-	mergeState <-chan slave.WorldView, stateToBackup chan<- slave.WorldView, aliveBackupsCh <-chan []string, requestBackupAck chan<- slave.Calls,
-	stateToAssign chan<- slave.WorldView, assignedRequests <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, toSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	endMasterPhase chan<- struct{}) {
+func stateManager(
+	initWorldview slave.WorldView,
+	requestAssignment <-chan struct{},
+	slaveUpdate <-chan slave.EventMessage,
+	backupUpdate <-chan []string,
+	mergeState <-chan slave.BackupCalls,
+	stateToBackup chan<- slave.WorldView,
+	aliveBackupsCh <-chan []string,
+	requestBackupAck chan<- slave.Calls,
+	stateToAssign chan<- slave.WorldView,
+	assignedRequests <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	toSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	endMasterPhase chan<- struct{},
+) {
 	// aliveBackups might be redundant
 	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
 
@@ -101,13 +111,14 @@ func stateManager(initWorldview slave.WorldView, requestAssignment <-chan struct
 			stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 			// maybe forward the update to receiveBackupAck on aliveBackups channel
 
-		case otherMasterState := <-mergeState:
-			fmt.Printf("otherMasterState: %v\n", otherMasterState)
+		case otherMasterCalls := <-mergeState:
+			fmt.Printf("otherMasterState: %v\n", otherMasterCalls)
 			// inherit calls from otherMaster TODO
-			if otherMasterState.OwnId > worldview.OwnId {
-			} else if otherMasterState.OwnId < worldview.OwnId {
+			if strconv.Itoa(otherMasterCalls.Id) > worldview.OwnId {
+				// continue to be the master
+			} else if strconv.Itoa(otherMasterCalls.Id) < worldview.OwnId {
 				if (isCallsSubset(slave.Calls{HallCalls: worldview.HallCalls, CabCalls: worldview.CabCalls},
-					slave.Calls{HallCalls: otherMasterState.HallCalls, CabCalls: otherMasterState.CabCalls})) {
+					slave.Calls{HallCalls: otherMasterCalls.Calls.HallCalls, CabCalls: otherMasterCalls.Calls.CabCalls})) {
 					endMasterPhase <- struct{}{}
 				}
 			}

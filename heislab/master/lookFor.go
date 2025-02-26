@@ -4,16 +4,14 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-// consider using the masterWorldViewRx instead
-func lookForOtherMasters(endMasterPhase chan<- struct{}, masterWorldViewRx <-chan slave.WorldView, ownId string, mergeState chan<- slave.WorldView) {
-	// lookForMastersLoop:
+// If we detect another master, forward this information to ???
+func lookForOtherMasters(masterCallsRx <-chan slave.BackupCalls, ownId int, mergeState chan<- slave.BackupCalls) {
 	for {
 		select {
-		case masterWorldView := <-masterWorldViewRx:
-			if masterWorldView.OwnId != ownId {
-			mergeState <- masterWorldView
+		case otherMasterCalls := <-masterCallsRx:
+			if otherMasterCalls.Id != ownId {
+				mergeState <- otherMasterCalls
 			}
 		}
-
 	}
 }

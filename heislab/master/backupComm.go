@@ -11,21 +11,22 @@ import (
 	"github.com/mohae/deepcopy"
 )
 
-// consider running this as a nested function inside statemanager instead
-func sendStateToBackups(stateToBackup chan slave.WorldView, masterWorldViewTx chan slave.WorldView, initWorldview slave.WorldView) {
-	worldview := deepcopy.Copy(initWorldview).(slave.WorldView)
+func backupsTx(stateToBackup <-chan slave.WorldView, masterCallsTx chan<- slave.BackupCalls, initCalls slave.BackupCalls) {
+	calls := deepcopy.Copy(initCalls).(slave.BackupCalls)
 	for {
 		select {
-		case worldview = <-stateToBackup:
-			masterWorldViewTx <- worldview
+		case worldview := <-stateToBackup:
+			calls.Calls.CabCalls = worldview.CabCalls
+			calls.Calls.HallCalls = worldview.HallCalls
+			masterCallsTx <- calls
 		case <-time.After(config.MasterMessagePeriodSeconds):
-			masterWorldViewTx <- worldview
+			masterCallsTx <- calls
 		}
 	}
 
 }
 
-func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh chan peers.PeerUpdate) {
+func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers.PeerUpdate) {
 	a := <-backupsUpdateCh
 	var aliveBackups []string = a.Peers
 	aliveBackupsCh <- aliveBackups
@@ -43,7 +44,7 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh chan peers.P
 }
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.Calls, backupWorldViewRx <-chan slave.WorldView) {
+func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.Calls, backupCallsRx <-chan slave.BackupCalls) {
 	ID, _ := strconv.Atoi(OwnId)
 	var aliveBackups []string = <-aliveBackupsCh
 	var acksReceived [config.N_ELEVATORS]bool
@@ -62,11 +63,10 @@ mainLoop:
 		}
 
 		select {
-		case a := <-backupWorldViewRx: // set ack for backup if it has the same calls
-			if (sameCalls(slave.Calls{HallCalls: a.HallCalls, CabCalls: a.CabCalls}, calls)) {
-				fmt.Println("new backup state")
-				i, _ := strconv.Atoi(a.OwnId)
-				acksReceived[i] = true
+		case a := <-backupCallsRx: // set ack for backup if it has the same calls
+			if a.Calls == calls {
+				fmt.Println("new backup state from", a.Id)
+				acksReceived[a.Id] = true
 			}
 		default:
 		}
