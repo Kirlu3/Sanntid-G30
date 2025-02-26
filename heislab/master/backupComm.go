@@ -66,7 +66,7 @@ mainLoop:
 		select {
 		case a := <-backupCallsRx: // set ack for backup if it has the same calls
 			if a.Calls == calls {
-				fmt.Println("new backup state from", a.Id)
+				// fmt.Println("new backup state from", a.Id)
 				acksReceived[a.Id] = true
 			}
 		default:
@@ -95,7 +95,7 @@ mainLoop:
 				AliveElevators[idx] = true
 			}
 			AliveElevators[ID] = true
-			callsToAssign <- slave.AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign
+			callsToAssign <- slave.AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign, do we ever block here?
 			newCalls = false
 		}
 	}

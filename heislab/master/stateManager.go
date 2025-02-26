@@ -59,6 +59,7 @@ func stateManager(
 					worldview.HallCalls[slaveMessage.Btn.Floor][slaveMessage.Btn.Button] = true
 				}
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
+				fmt.Println("SM:Button Event: waiting for requestBackupAck to read message")
 				requestBackupAck <- slave.Calls{
 					HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS][config.N_BUTTONS - 1]bool),
 					CabCalls:  deepcopy.Copy(worldview.CabCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
