@@ -10,3 +10,11 @@ TODO:
 -Watchdog with program that restarts on a crash (would fix the occasional crashes on startup)
 
 -Change config to include everything necessary, including: Base IP
+
+-fix messages between slaveRx and assignOrders, backupAckRx
+
+-fix graceful shutdown of master mode
+
+-fix init of fsm (set ligths to 0 maybe?)
+
+-how do the slaves handle losing their master?

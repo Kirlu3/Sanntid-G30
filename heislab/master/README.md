@@ -34,3 +34,5 @@ fix messages between slaveComm and assigner, backupAckRx
 fix graceful shutdown of master mode
 
 fix init of fsm (set ligths to 0 maybe?)
+
+how do the slaves handle losing their master?
