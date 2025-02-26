@@ -35,12 +35,15 @@ func stateManager(
 		fmt.Println("SM:New Loop")
 		select {
 		case assignments := <-assignedRequests: //updates state in worldview before sending out requests
+			fmt.Println("SM case from assignmets")
+
 			for elev := range config.N_ELEVATORS {
 				worldview.Elevators[elev].Requests = assignments[elev]
 			}
 			toSlaveCh <- assignments
 		case <-requestAssignment:
 			fmt.Println("SM:reassignment")
+			worldview.AliveElevators[ownId] = true
 			stateToAssign <- worldview
 
 		case slaveMessage := <-slaveUpdate:
@@ -82,6 +85,7 @@ func stateManager(
 						}
 					}
 					stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
+					fmt.Println("SM: Clearing orders: waiting for requestBackupAck to read message")
 					requestBackupAck <- slave.Calls{
 						HallCalls: deepcopy.Copy(worldview.HallCalls).([config.N_FLOORS][config.N_BUTTONS - 1]bool),
 						CabCalls:  deepcopy.Copy(worldview.CabCalls).([config.N_ELEVATORS][config.N_FLOORS]bool),
@@ -99,6 +103,7 @@ func stateManager(
 			}
 
 		case backups := <-aliveBackupsCh:
+			fmt.Println("SM case backupsUpdate")
 			for i := range worldview.AliveElevators {
 				worldview.AliveElevators[i] = false
 			}
@@ -112,6 +117,7 @@ func stateManager(
 			// maybe forward the update to receiveBackupAck on aliveBackups channel
 
 		case otherMasterCalls := <-mergeState:
+			fmt.Println("SM case mergeState")
 			fmt.Printf("otherMasterState: %v\n", otherMasterCalls)
 			// inherit calls from otherMaster TODO
 			if strconv.Itoa(otherMasterCalls.Id) > worldview.OwnId {

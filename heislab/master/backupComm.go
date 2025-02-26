@@ -44,9 +44,10 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers
 }
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
-func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.Calls, backupCallsRx <-chan slave.BackupCalls) {
+func receiveBackupAck(OwnId string, requestBackupAckCh <-chan slave.Calls, aliveBackupsCh <-chan []string, aliveBackupsToManagerCh chan<- []string, callsToAssign chan<- slave.AssignCalls, backupCallsRx <-chan slave.BackupCalls) {
 	ID, _ := strconv.Atoi(OwnId)
 	var aliveBackups []string = <-aliveBackupsCh
+	aliveBackupsToManagerCh <- aliveBackups
 	var acksReceived [config.N_ELEVATORS]bool
 	var calls slave.Calls
 	newCalls := false
@@ -73,7 +74,7 @@ mainLoop:
 
 		select {
 		case aliveBackups = <-aliveBackupsCh:
-			aliveBackupsToManagerCh <- aliveBackups
+			// aliveBackupsToManagerCh <- aliveBackups // oh wtf BEGGING FOR A DEADLOCK // SOLUTION: DONT SEND ALIVE TO STATEMANAGER
 		default:
 		}
 
@@ -85,7 +86,16 @@ mainLoop:
 		}
 		if newCalls {
 			fmt.Println("BC: Sending calls")
-			callsToAssign <- calls // orders to assign
+			var AliveElevators [config.N_ELEVATORS]bool
+			for _, elev := range aliveBackups {
+				idx, err := strconv.Atoi(elev)
+				if err != nil {
+					panic("BC got weird aliveElev")
+				}
+				AliveElevators[idx] = true
+			}
+			AliveElevators[ID] = true
+			callsToAssign <- slave.AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign
 			newCalls = false
 		}
 	}

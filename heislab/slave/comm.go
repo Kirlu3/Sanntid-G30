@@ -56,18 +56,18 @@ func sender(outgoing <-chan EventMessage, ID int) {
 			}
 
 		case <-ackTimeout:
-			fmt.Println("STx: Waiting for ack")
+			// fmt.Println("STx: Waiting for ack")
 			if !timerRunning {
 				timerRunning = true
 				time.AfterFunc(time.Millisecond*200, func() {
 					timerRunning = false
-					fmt.Println("STx: Ack timeout")
+					// fmt.Println("STx: Ack timeout")
 					if needAck {
-						fmt.Println("STx: No ack received")
+						// fmt.Println("STx: No ack received")
 						tx <- out
-						fmt.Println("STx: Resent message")
+						// fmt.Println("STx: Resent message")
 						ackTimeout <- true
-						fmt.Println("STx: Resent ack timeout")
+						// fmt.Println("STx: Resent ack timeout")
 					} else {
 						fmt.Println("STx: Ack previously received")
 					}

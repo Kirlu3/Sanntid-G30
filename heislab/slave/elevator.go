@@ -49,3 +49,8 @@ type BackupCalls struct {
 	Calls Calls
 	Id    int
 }
+
+type AssignCalls struct {
+	Calls Calls
+	AliveElevators [config.N_ELEVATORS]bool
+}

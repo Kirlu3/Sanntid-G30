@@ -20,10 +20,10 @@ func Backup(id string) {
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	masterTxEnable := make(chan bool)
 	backupsTxEnable := make(chan bool)
-	masterCallsTx := make(chan<- Slave.BackupCalls)
-	backupCallsTx := make(chan<- Slave.BackupCalls)
-	masterCallsRx := make(<-chan Slave.BackupCalls)
-	backupCallsRx := make(<-chan Slave.BackupCalls)
+	masterCallsTx := make(chan Slave.BackupCalls)
+	backupCallsTx := make(chan Slave.BackupCalls)
+	masterCallsRx := make(chan Slave.BackupCalls)
+	backupCallsRx := make(chan Slave.BackupCalls)
 
 	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
 	masterTxEnable <- false // this is dangerous as we risk briefly claiming to be master even though we are not, it seems as long as it takes less than interval it is fine
@@ -70,8 +70,8 @@ func Backup(id string) {
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
-		case <-time.After(time.Second * 5):
-			panic("backup select blocked for 5 seconds. I dont see why this would ever happen")
+		case <-time.After(time.Second * 1):
+			fmt.Println("backup select blocked for 1 seconds. this should only happen if there are no masters")
 		}
 		backupCallsTx <- calls
 		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {

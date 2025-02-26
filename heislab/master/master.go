@@ -46,7 +46,7 @@ func Master(
 	endMasterPhase := make(chan struct{})                                                      // lookForOtherMasters -> Master | when a master with higher pri is found we end the master phase by writing to this channel
 	toSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)        //stateManager -> sendMessagesToSlaves
 	assignedRequests := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) //assignOrders -> stateManager
-	callsToAssign := make(chan slave.Calls)
+	callsToAssign := make(chan slave.AssignCalls)
 	// EXAMPLE OF POSSIBLE THREADS IN MASTER
 	// go establishConnectionsToSlaves() // i have no idea how this is done or if this go routine makes sense
 
