@@ -1,20 +1,31 @@
 package main
 
 import (
-	"os"
+	"flag"
+	"fmt"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/backup"
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
+// the program should be called with go run heislab/main.go -id=x -port=5590x
 func main() {
-	id := os.Args[1:][0]
-	N_FLOORS := 4
-	elevio.Init("localhost:15657", N_FLOORS)
-	go slave.Slave(id)
-	go backup.Backup(id)
+	// id := os.Args[1:][0]
+	id := flag.String("id", "inv", "id of this elevator")
+	serverPort := flag.String("port", "15657", "port to communicate with elevator")
+	flag.Parse()
+
+	if *id == "inv" {
+		panic("please specify an id in [0, N_Elevators) with -id=x")
+	}
+
+	serverAddress := fmt.Sprintf("localhost:%s", *serverPort)
+	elevio.Init(serverAddress, config.N_FLOORS)
+	go slave.Slave(*id)
+	go backup.Backup(*id)
 
 	select {}
 }
