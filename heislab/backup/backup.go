@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -39,120 +38,54 @@ func Backup(id string) {
 	go bcast.Receiver(config.MasterWorldviewPort, masterCallsRx)
 	go bcast.Receiver(config.BackupsWorldviewPort, backupCallsRx)
 
+	fmt.Println("Backup Started: ", id)
+	var backupsUpdate peers.PeerUpdate
+	var masterUpdate peers.PeerUpdate
+	var calls Slave.BackupCalls
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		panic("backup received invalid id")
+	}
+	calls.Id = idInt
+
+	masterUpgradeCooldown := time.NewTimer(1 * time.Second)
 	for {
-		backupsTxEnable <- true
-		fmt.Println("Backup Started: ", id)
-		var backupsUpdate peers.PeerUpdate
-		var masterUpdate peers.PeerUpdate
-		ctx, cancel := context.WithCancel(context.Background())
-		callsUpdateCh := make(chan Slave.Calls)
-
-		go func() {
-			var calls Slave.BackupCalls
-			idInt, err := strconv.Atoi(id)
-			if err != nil {
-				panic("backup received invalid id")
+		select {
+		case c := <-masterCallsRx:
+			if len(masterUpdate.Peers) > 0 && strconv.Itoa(c.Id) == masterUpdate.Peers[0] {
+				calls.Calls = c.Calls
+			} else {
+				fmt.Println("received a message from not the master")
 			}
-			calls.Id = idInt
 
-			for {
-				var ok bool
-				select {
-				case calls.Calls, ok = <-callsUpdateCh:
-					if !ok {
-						// make sure our calls are brought into the master phase
-						return
-					}
+		case backupsUpdate = <-backupsUpdateCh:
+			fmt.Printf("Backups update:\n")
+			fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
+			fmt.Printf("  New:        %q\n", backupsUpdate.New)
+			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
-				default:
-					backupCallsTx <- calls
-				}
-			}
-		}()
+		case masterUpdate = <-masterUpdateCh:
+			fmt.Printf("Master update:\n")
+			fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
+			fmt.Printf("  New:        %q\n", masterUpdate.New)
+			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
-		go func() {
-			var calls Slave.BackupCalls
-			idInt, err := strconv.Atoi(id)
-			if err != nil {
-				panic("backup received invalid id")
-			}
-			calls.Id = idInt
-			for {
-				select {
-				case <-ctx.Done():
-					close(callsUpdateCh)
-					return
-
-				case c := <-masterCallsRx:
-					if len(masterUpdate.Peers) > 0 && strconv.Itoa(c.Id) == masterUpdate.Peers[0] {
-						calls.Calls = c.Calls
-					} else {
-						fmt.Println("received a message from not the master")
-					}
-
-				case backupsUpdate = <-backupsUpdateCh:
-					fmt.Printf("Backups update:\n")
-					fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
-					fmt.Printf("  New:        %q\n", backupsUpdate.New)
-					fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
-
-				case masterUpdate = <-masterUpdateCh:
-					fmt.Printf("Master update:\n")
-					fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
-					fmt.Printf("  New:        %q\n", masterUpdate.New)
-					fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
-				}
-				backupCallsTx <- calls
-			}
-		}()
-
-		time.Sleep(time.Millisecond*200)
-		for {
-			if slices.Min(backupsUpdate.Peers) == id {
-				cancel()
-				// close the old channels? it might not be strictly necessary, // TODO fix
-				backupsTxEnable <- false // consider this
-				master.Master(worldView, masterUpdateCh, masterTxEnable, masterWorldViewTx, masterWorldViewRx, backupWorldViewRx, backupsUpdateCh)
-			}
+		case <-time.After(time.Second * 5):
+			panic("backup select blocked for 5 seconds. I dont see why this would ever happen")
 		}
-
-
-		// start master phase:
-		
-
-	// messageHandlerLoop:
-	// 	for {
-	// 		select {
-	// 		case <-time.After(2 * time.Second):
-	// 			//does this still run if you activate another case?
-	// 			break messageHandlerLoop
-	// 		case masterUpdate = <-masterUpdateCh:
-	// 			fmt.Printf("Master update:\n")
-	// 			fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
-	// 			fmt.Printf("  New:        %q\n", masterUpdate.New)
-	// 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
-	// 			if len(masterUpdate.Peers) == 0 {
-	// 				break messageHandlerLoop
-	// 			}
-
-	// 		case backupsUpdate = <-backupsUpdateCh:
-	// 			fmt.Printf("Backups update:\n")
-	// 			fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
-	// 			fmt.Printf("  New:        %q\n", backupsUpdate.New)
-	// 			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
-
-	// 		case a := <-masterWorldViewRx:
-	// 			// fmt.Printf("Received: %#v\n", a)
-	// 			if len(masterUpdate.Peers) > 0 && a.OwnId == masterUpdate.Peers[0] {
-	// 				worldView.CabCalls = a.CabCalls
-	// 				worldView.HallCalls = a.HallCalls
-
-	// 			} else {
-	// 				fmt.Println("received master state from not the master")
-	// 			}
-	// 		}
-	// 	}
-
-
+		backupCallsTx <- calls
+		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {
+			select {
+			case <-masterUpgradeCooldown.C:
+				return true
+			default:
+				return false
+			}
+		}() {
+			backupsTxEnable <- false
+			master.Master(calls, masterCallsTx, backupCallsRx, masterTxEnable, masterUpdateCh, backupsUpdateCh)
+			backupsTxEnable <- true
+			masterUpgradeCooldown.Reset(time.Second * 2)
+		}
 	}
 }
