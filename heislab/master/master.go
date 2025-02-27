@@ -10,8 +10,7 @@ import (
 
 type Placeholder int
 
-// func Master(initWorldview slave.WorldView, masterUpdateCh chan peers.PeerUpdate, masterTxEnable chan bool, masterWorldViewTx chan slave.WorldView,
-// masterWorldViewRx chan slave.WorldView, backupWorldViewRx chan slave.WorldView, backupsUpdateCh chan peers.PeerUpdate) {
+
 func Master(
 	initCalls slave.BackupCalls,
 	masterCallsTx chan<- slave.BackupCalls,

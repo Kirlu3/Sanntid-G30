@@ -8,11 +8,10 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
-	"github.com/mohae/deepcopy"
 )
 
 func backupsTx(callsToBackupsCh <-chan slave.Calls, masterCallsTx chan<- slave.BackupCalls, initCalls slave.BackupCalls) {
-	calls := deepcopy.Copy(initCalls).(slave.BackupCalls)
+	calls := initCalls
 	for {
 		select {
 		case calls.Calls = <-callsToBackupsCh:
@@ -61,11 +60,11 @@ func backupAckRx(
 	// for all channels consider if it is nicer to start them here or in master()
 	go lookForOtherMasters(otherMasterCallsCh, Id, masterCallsRx)
 	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
-	go backupsTx(callsToBackupsCh, masterCallsTx, deepcopy.Copy(initCalls).(slave.BackupCalls))
+	go backupsTx(callsToBackupsCh, masterCallsTx, initCalls)
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
-	calls := deepcopy.Copy(initCalls).(slave.Calls)
+	calls := initCalls.Calls
 	wantReassignment := false
 mainLoop:
 	for {
@@ -95,6 +94,21 @@ mainLoop:
 		default:
 		}
 
+		select {
+		case otherMasterCalls := <-otherMasterCallsCh:
+			if otherMasterCalls.Id < Id && isCallsSubset(calls, otherMasterCalls.Calls) {
+				// just crash the program
+				panic("find a better way to restart the program")
+				endMasterPhaseCh <- struct{}{}
+
+			} else if otherMasterCalls.Id > Id {
+				calls = union(calls, otherMasterCalls.Calls)
+			} else {
+				fmt.Println("couldn't end master phase: other master has not accepted our calls")
+			}
+		default:
+		}
+
 		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
 			i, _ := strconv.Atoi(backup)
 			if !acksReceived[i] {
@@ -116,4 +130,39 @@ mainLoop:
 			wantReassignment = false
 		}
 	}
+}
+
+// returns true if calls1 is a subset of calls2
+func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
+			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
+				return false
+			}
+		}
+	}
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
+			if calls1.HallCalls[i][j] && !calls2.HallCalls[i][j] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// returns the union of the calls in calls1 and calls2
+func union(calls1 slave.Calls, calls2 slave.Calls) slave.Calls {
+	var unionCalls slave.Calls
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
+			unionCalls.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
+		}
+	}
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
+			unionCalls.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
+		}
+	}
+	return unionCalls
 }
