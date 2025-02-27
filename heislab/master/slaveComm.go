@@ -5,17 +5,18 @@ import (
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func receiveMessagesFromSlaves(slaveUpdate chan<- slave.EventMessage) {
+func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator, callsUpdateCh chan<- slave.UpdateCalls) {
 	for slaveID := range config.N_ELEVATORS {
-		go receiveMessageFromSlave(slaveUpdate, slaveID)
+		go receiveMessageFromSlave(stateUpdateCh, callsUpdateCh, slaveID)
 	}
 }
 
-func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int) {
+func receiveMessageFromSlave(stateUpdateCh chan<- slave.Elevator, callsUpdateCh chan<- slave.UpdateCalls, slaveID int) {
 	//rx channel for receiving from each slave
 	rx := make(chan slave.EventMessage)
 	go bcast.Receiver(config.SlaveBasePort+slaveID, rx)
@@ -30,10 +31,37 @@ func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int)
 		if msg.MsgID != msgID {
 			println("ST: Received new message")
 			msgID = msg.MsgID
-			slaveUpdate <- msg
+			stateUpdateCh <- msg.Elevator
+			// put all of this into a function maybe??
+			if msg.Event == slave.Button {
+				callsUpdate := makeAddCallsUpdate(msg)
+				callsUpdateCh <- callsUpdate
+			} else if msg.Event == slave.FloorArrival && msg.Elevator.Behaviour == slave.EB_DoorOpen {
+				callsUpdate := makeRemoveCallsUpdate(msg)
+				callsUpdateCh <- callsUpdate
+			}
 			println("ST: Sent message out")
 		}
 	}
+}
+
+func makeRemoveCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
+	var callsUpdate slave.UpdateCalls
+	callsUpdate.AddCall = false
+	callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Elevator.Floor] = true
+	return callsUpdate
+}
+
+// TODO fix logic for removing hall calls, because it doesnt really make any sense to me
+func makeAddCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
+	var callsUpdate slave.UpdateCalls
+	callsUpdate.AddCall = true
+	if msg.Btn.Button == elevio.BT_Cab {
+		callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Btn.Floor] = true
+	} else {
+		callsUpdate.Calls.HallCalls[msg.Btn.Floor][msg.Btn.Button] = true
+	}
+	return callsUpdate
 }
 
 func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {

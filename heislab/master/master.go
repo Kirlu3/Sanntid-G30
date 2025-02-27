@@ -10,7 +10,6 @@ import (
 
 type Placeholder int
 
-
 func Master(
 	initCalls slave.BackupCalls,
 	masterCallsTx chan<- slave.BackupCalls,
@@ -20,27 +19,25 @@ func Master(
 	backupsUpdateCh <-chan peers.PeerUpdate,
 ) {
 	masterTxEnable <- true
-	fmt.Println(initCalls.Id, " entered master mode")
+	fmt.Println(initCalls.Id, "entered master mode")
 
 	// PLANNED NEW GO ROUTINES, NOTE THAT backupAckRx spawns some new go routines
 	// go slaveStateRx()
 	// go slaveCallsRx()
 
-	callsUpdateCh := make(chan slave.Calls)
+	callsUpdateCh := make(chan slave.UpdateCalls)
 	callsToAssignCh := make(chan slave.AssignCalls)
-	endMasterPhaseCh := make(chan struct{})
 
-	stateUpdateCh := make(chan [config.N_ELEVATORS]slave.Elevator)
+	stateUpdateCh := make(chan slave.Elevator)
 	assignmentsToSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 
-	go backupAckRx(callsUpdateCh, callsToAssignCh, endMasterPhaseCh, initCalls, masterCallsTx, masterCallsRx, backupCallsRx, backupsUpdateCh)
+	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, masterCallsTx, masterCallsRx, backupCallsRx, backupsUpdateCh)
 	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
 
 	receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh) //starts other go routines
 	go sendMessagesToSlaves(assignmentsToSlaveCh)           // orders (+ lights?) ??
 
-	<-endMasterPhaseCh
-	masterTxEnable <- false
+	select {}
 	// to end the goroutines, close their channels (and add logic in the goroutines to return when channels are closed)
 	// end all goroutines and return (to backup state) (if we learn that there are other masters with higher priority?)
 	// does this master/backups structure make sense?

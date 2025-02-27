@@ -36,7 +36,7 @@ var directionMap = map[slave.ElevatorDirection]string{
 }
 
 func assignOrders(
-	stateUpdateCh <-chan [config.N_ELEVATORS]slave.Elevator,
+	stateUpdateCh <-chan slave.Elevator,
 	callsToAssignCh <-chan slave.AssignCalls,
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
@@ -44,14 +44,11 @@ func assignOrders(
 	for {
 		select {
 		case stateUpdate := <-stateUpdateCh:
-			prevElevators := state.Elevators
-			state.Elevators = stateUpdate
-			for i := range config.N_ELEVATORS {
-				if prevElevators[i].Stuck != state.Elevators[i].Stuck { // reassign if elev has become stuck/unstuck
-					assignments := assign(state)
-					assignmentsToSlaveCh <- assignments
-					break
-				}
+			prevElevator := state.Elevators[stateUpdate.ID]
+			state.Elevators[stateUpdate.ID] = stateUpdate
+			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
+				assignments := assign(state)
+				assignmentsToSlaveCh <- assignments
 			}
 			fmt.Println("As:Received new states")
 		default:

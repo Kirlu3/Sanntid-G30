@@ -42,9 +42,8 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
 func backupAckRx(
-	callsUpdateCh <-chan slave.Calls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
+	callsUpdateCh <-chan slave.UpdateCalls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
 	callsToAssignCh chan<- slave.AssignCalls,
-	endMasterPhaseCh chan<- struct{},
 	initCalls slave.BackupCalls,
 	masterCallsTx chan<- slave.BackupCalls,
 	masterCallsRx <-chan slave.BackupCalls,
@@ -69,8 +68,12 @@ func backupAckRx(
 mainLoop:
 	for {
 		select {
-		case callsUpdate := <-callsUpdateCh: // when we receive new calls reset all acks, THE LOGIC HERE WILL BE MORE COMPLICATED NOW, alternatively the logic can be done in slaveRx
-			calls = updatedCalls(calls, callsUpdate) //TODO: calculate the updated calls based on calls and the new message
+		case callsUpdate := <-callsUpdateCh:
+			if callsUpdate.AddCall == true {
+				calls = union(calls, callsUpdate.Calls)
+			} else {
+				calls = removeCalls(calls, callsUpdate.Calls)
+			}
 			wantReassignment = true
 			for i := range acksReceived {
 				acksReceived[i] = false
@@ -99,7 +102,6 @@ mainLoop:
 			if otherMasterCalls.Id < Id && isCallsSubset(calls, otherMasterCalls.Calls) {
 				// just crash the program
 				panic("find a better way to restart the program")
-				endMasterPhaseCh <- struct{}{}
 
 			} else if otherMasterCalls.Id > Id {
 				calls = union(calls, otherMasterCalls.Calls)
@@ -165,4 +167,21 @@ func union(calls1 slave.Calls, calls2 slave.Calls) slave.Calls {
 		}
 	}
 	return unionCalls
+}
+
+// returns calls \ removedCalls, where \ is set difference
+func removeCalls(calls slave.Calls, removedCalls slave.Calls) slave.Calls {
+	updatedCalls := calls
+
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
+			updatedCalls.CabCalls[i][j] = calls.CabCalls[i][j] && !removedCalls.CabCalls[i][j]
+		}
+	}
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
+			updatedCalls.HallCalls[i][j] = calls.HallCalls[i][j] || !removedCalls.HallCalls[i][j]
+		}
+	}
+	return updatedCalls
 }
