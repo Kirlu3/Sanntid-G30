@@ -31,6 +31,7 @@ func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int)
 			println("ST: Received new message")
 			msgID = msg.MsgID
 			slaveUpdate <- msg
+			println("ST: Sent message out")
 		}
 	}
 }
