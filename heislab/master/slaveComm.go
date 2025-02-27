@@ -10,7 +10,7 @@ import (
 )
 
 func receiveMessagesFromSlaves(slaveUpdate chan<- slave.EventMessage) {
-	for slaveID := 1; slaveID <= config.N_ELEVATORS; slaveID++ {
+	for slaveID := range config.N_ELEVATORS {
 		go receiveMessageFromSlave(slaveUpdate, slaveID)
 	}
 }
@@ -24,6 +24,7 @@ func receiveMessageFromSlave(slaveUpdate chan<- slave.EventMessage, slaveID int)
 	go bcast.Transmitter(config.SlaveBasePort+slaveID+10, ack)
 	var msgID int
 	for msg := range rx {
+		println("ST: Received message")
 		ack <- msg.MsgID
 		fmt.Println("ST: Sent Ack")
 		if msg.MsgID != msgID {

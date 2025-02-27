@@ -3,6 +3,7 @@ package slave
 import (
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -32,13 +33,11 @@ func sender(outgoing <-chan EventMessage, ID int) {
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
 	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
 	var msgID int
-	ackTimeout := make(chan bool, 2)
-	needAck := false
-	timerRunning := false
+	ackTimeout := make(chan int, 2)
+	var needAck []int
+	var timerRunning []int
 	var out EventMessage
 
-	//This will per now continue to retry util it gets an acknowledgement, should it have a timeout?
-	//This causes a bug, in some cases ackTimeout blocks and I'm not sure when...
 	for {
 		select {
 		case out = <-outgoing:
@@ -46,28 +45,33 @@ func sender(outgoing <-chan EventMessage, ID int) {
 			msgID = rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
-			needAck = true
-			ackTimeout <- true
+			needAck = append(needAck, msgID)
+			ackTimeout <- msgID
 
 		case ackID := <-ack:
-			if msgID == ackID {
+			if slices.Contains(needAck, ackID) {
+				needAck[slices.Index(needAck, ackID)] = needAck[len(needAck)-1]
+				needAck = needAck[:len(needAck)-1]
 				fmt.Println("STx: Received ack")
-				needAck = false
 			}
 
-		case <-ackTimeout:
+		case msgID := <-ackTimeout:
 			// fmt.Println("STx: Waiting for ack")
-			if !timerRunning {
-				timerRunning = true
-				time.AfterFunc(time.Millisecond*200, func() {
-					timerRunning = false
-					// fmt.Println("STx: Ack timeout")
-					if needAck {
+			if !slices.Contains(timerRunning, msgID) {
+				fmt.Println("STx: Starting timer")
+				timerRunning = append(timerRunning, msgID)
+				time.AfterFunc(time.Millisecond*1000, func() {
+					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
+					timerRunning = timerRunning[:len(timerRunning)-1]
+					fmt.Println("STx: Ack timeout", timerRunning)
+					if slices.Contains(needAck, msgID) {
+						fmt.Println("STx: No ack received")
 						// fmt.Println("STx: No ack received")
 						tx <- out
 						// fmt.Println("STx: Resent message")
-						ackTimeout <- true
+						ackTimeout <- msgID
 						// fmt.Println("STx: Resent ack timeout")
+						fmt.Println("STx: Resent message")
 					} else {
 						fmt.Println("STx: Ack previously received")
 					}
@@ -99,7 +103,6 @@ func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx 
 					lights[j][elevio.BT_HallDown] = lights[j][elevio.BT_HallDown] || msg[i][j][elevio.BT_HallDown]
 				}
 			}
-			//Cab calls don't work, except on floor 2?
 			lightsRx <- lights
 		} else {
 			continue
