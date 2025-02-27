@@ -70,7 +70,7 @@ func backupAckRx(
 mainLoop:
 	for {
 		select {
-		case callsUpdate := <-callsUpdateCh: // when we receive new calls reset all acks, THE LOGIC HERE WILL BE MORE COMPLICATED NOW
+		case callsUpdate := <-callsUpdateCh: // when we receive new calls reset all acks, THE LOGIC HERE WILL BE MORE COMPLICATED NOW, alternatively the logic can be done in slaveRx
 			calls = updatedCalls(calls, callsUpdate) //TODO: calculate the updated calls based on calls and the new message
 			wantReassignment = true
 			for i := range acksReceived {

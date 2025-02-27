@@ -18,3 +18,5 @@ TODO:
 -fix init of fsm (set ligths to 0 maybe?)
 
 -how do the slaves handle losing their master?
+
+-apparently go passes structs and arrays by value so deepcopy is probably not necessary?

@@ -156,17 +156,18 @@ func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
 	return true
 }
 
-// this is supposed to be some union function
-func adhdhd(calls1 slave.Calls, calls2 slave.Calls) bool {
+// returns the union of the calls in calls1 and calls2
+func union(calls1 slave.Calls, calls2 slave.Calls) slave.Calls {
+	var unionCalls slave.Calls
 	for i := range config.N_ELEVATORS {
 		for j := range config.N_FLOORS {
-			calls1.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
+			unionCalls.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
 		}
 	}
 	for i := range config.N_FLOORS {
 		for j := range config.N_BUTTONS - 1 {
-			calls1.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
+			unionCalls.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
 		}
 	}
-	return true
+	return unionCalls
 }
