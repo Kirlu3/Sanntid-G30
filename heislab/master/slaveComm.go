@@ -11,31 +11,35 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-
 // how do I clear orders?
-func receiveMessagesFromSlaves(stateUpdateCh chan<- [config.N_ELEVATORS]slave.Elevator, callsUpdateCh chan<- slave.Calls) {
+func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
+	callsUpdateCh chan<- slave.UpdateCalls,
+	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+
 	slaveRx := make(chan slave.EventMessage)
 	for slaveID := range config.N_ELEVATORS {
 		go receiveMessageFromSlave(slaveRx, slaveID)
 	}
 
-	for update := range slaveRx {
-		fmt.Println("ST: Received new message")
-		fmt.Println(update)
-		switch update.Event {
-		case slave.Button:
-			var newCalls slave.Calls
-			if update.Btn.Button == elevio.BT_Cab {
-				newCalls.CabCalls[update.Elevator.ID][update.Btn.Floor] = true
-			} else {
-				newCalls.HallCalls[update.Btn.Floor][update.Btn.Button] = true
+	var assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	for {
+		select {
+		case update := <-slaveRx:
+			fmt.Println("ST: Received new message")
+			fmt.Println(update)
+			switch update.Event {
+			case slave.Button:
+				callsUpdateCh <- makeAddCallsUpdate(update)
+			case slave.FloorArrival:
+				stateUpdateCh <- update.Elevator
+				if update.Elevator.Behaviour == slave.EB_DoorOpen {
+					callsUpdateCh <- makeRemoveCallsUpdate(update, assignments)
+				}
+			case slave.Stuck:
+				stateUpdateCh <- update.Elevator
 			}
-			callsUpdateCh <- newCalls
-		case slave.FloorArrival:
-			var newStates [config.N_ELEVATORS]slave.Elevator
-			newStates[update.Elevator.ID] = update.Elevator
-			stateUpdateCh <- newStates
-		case slave.Stuck:
+		case assignments = <-assignmentsToSlaveReceiver:
+			continue
 		}
 	}
 }
@@ -66,20 +70,15 @@ func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
 }
 
 // TODO fix logic for removing hall calls, because it doesnt really make any sense to me
-func makeRemoveCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
+func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) slave.UpdateCalls {
 	var callsUpdate slave.UpdateCalls
 	callsUpdate.AddCall = false
+
 	callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Elevator.Floor] = true
-	callsUpdate.Calls.HallCalls[msg.Elevator.Floor][0] = true
-	callsUpdate.Calls.HallCalls[msg.Elevator.Floor][1] = true
-	if msg.Elevator.Floor == 0 {
-		callsUpdate.Calls.HallCalls[0][elevio.BT_HallDown] = false
-	} else if msg.Elevator.Floor == config.N_FLOORS-1 {
-		callsUpdate.Calls.HallCalls[config.N_FLOORS-1][elevio.BT_HallUp] = false
-	} else if msg.Elevator.Direction == slave.D_Down {
-		callsUpdate.Calls.HallCalls[msg.Elevator.Floor][elevio.BT_HallUp] = false
-	} else if msg.Elevator.Direction == slave.D_Up {
-		callsUpdate.Calls.HallCalls[msg.Elevator.Floor][elevio.BT_HallDown] = false
+	for btn := range config.N_BUTTONS - 1 {
+		if assignments[msg.Elevator.ID][msg.Elevator.Floor][btn] && !msg.Elevator.Requests[msg.Elevator.Floor][btn] {
+			callsUpdate.Calls.HallCalls[msg.Elevator.Floor][btn] = true
+		}
 	}
 	return callsUpdate
 }
