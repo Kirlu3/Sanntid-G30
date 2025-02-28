@@ -60,9 +60,9 @@ func sender(outgoing <-chan EventMessage, ID int) {
 				fmt.Println("STx: Starting timer")
 				timerRunning = append(timerRunning, msgID)
 				time.AfterFunc(time.Millisecond*1000, func() {
+					fmt.Println("STx: Ack timeout", timerRunning)
 					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
 					timerRunning = timerRunning[:len(timerRunning)-1]
-					fmt.Println("STx: Ack timeout", timerRunning)
 					if slices.Contains(needAck, msgID) {
 						fmt.Println("STx: No ack received")
 						// fmt.Println("STx: No ack received")

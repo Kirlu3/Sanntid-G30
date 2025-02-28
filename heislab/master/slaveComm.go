@@ -57,7 +57,7 @@ func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
 	for msg := range rx {
 		println("ST: Received message")
 		ack <- msg.MsgID
-		fmt.Println("ST: Sent Ack")
+		fmt.Println("ST: Sent Ack", msg.MsgID)
 		if !slices.Contains(msgID, msg.MsgID) {
 			msgID = append(msgID, msg.MsgID)
 			// if we've stored too many IDs, remove the oldest one (I assume I will never need to hold more than 10, likely less)

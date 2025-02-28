@@ -96,7 +96,7 @@ func stateManager(
 			case slave.Stuck:
 				fmt.Println("Stuck Event")
 
-				worldview.Elevators[slaveId].Stuck = slaveMessage.Check
+				worldview.Elevators[slaveId].Stuck = slaveMessage.Elevator.Stuck
 				stateToAssign <- deepcopy.Copy(worldview).(slave.WorldView)
 
 			default:
@@ -135,5 +135,3 @@ func stateManager(
 		stateToBackup <- deepcopy.Copy(worldview).(slave.WorldView)
 	}
 }
-
-

@@ -41,6 +41,7 @@ func Slave(id string) {
 	var elevator Elevator
 	elevator.ID = ID
 	n_elevator := fsm_onInit(elevator)
+	updateLights(n_elevator.Requests)
 	if validElevator(n_elevator) {
 		activateIO(n_elevator, elevator, t_start)
 		elevator = n_elevator
@@ -86,6 +87,7 @@ func Slave(id string) {
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)
 			if validElevator(n_elevator) {
+				activateIO(n_elevator, elevator, t_start)
 				elevator = n_elevator
 				tx <- EventMessage{0, elevator, Stuck, elevio.ButtonEvent{}}
 			}
