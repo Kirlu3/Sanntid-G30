@@ -31,44 +31,44 @@ func sender(outgoing <-chan EventMessage, ID int) {
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
 	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
-	ackTimeout := make(chan int, 2)
+	ackTimeout := make(chan EventMessage, 2)
 	var needAck []int
-	var timerRunning []int
-	var out EventMessage
+	var timerRunning []EventMessage
 
 	for {
 		select {
-		case out = <-outgoing:
+		case out := <-outgoing:
 			fmt.Println("STx: Sending Message")
 			msgID := rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
 			needAck = append(needAck, msgID)
-			ackTimeout <- msgID
+			ackTimeout <- out
 
 		case ackID := <-ack:
+
 			if slices.Contains(needAck, ackID) {
 				needAck[slices.Index(needAck, ackID)] = needAck[len(needAck)-1]
 				needAck = needAck[:len(needAck)-1]
 				fmt.Println("STx: Received ack")
 			}
 
-		case msgID := <-ackTimeout:
+		case out := <-ackTimeout:
 			// fmt.Println("STx: Waiting for ack")
-			if !slices.Contains(timerRunning, msgID) {
+			if !slices.Contains(timerRunning, out) {
 				fmt.Println("STx: Starting timer")
-				timerRunning = append(timerRunning, msgID)
+				timerRunning = append(timerRunning, out)
 
 				time.AfterFunc(time.Millisecond*1000, func() {
 
 					fmt.Println("STx: Ack timeout", timerRunning)
-					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
+					timerRunning[slices.Index(timerRunning, out)] = timerRunning[len(timerRunning)-1]
 					timerRunning = timerRunning[:len(timerRunning)-1]
 
-					if slices.Contains(needAck, msgID) {
+					if slices.Contains(needAck, out.MsgID) {
 						fmt.Println("STx: No ack received")
 						tx <- out
-						ackTimeout <- msgID
+						ackTimeout <- out
 					} else {
 						fmt.Println("STx: Ack previously received")
 					}
