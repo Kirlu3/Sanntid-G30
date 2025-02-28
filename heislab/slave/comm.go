@@ -31,7 +31,6 @@ func sender(outgoing <-chan EventMessage, ID int) {
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
 	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
-	var msgID int
 	ackTimeout := make(chan int, 2)
 	var needAck []int
 	var timerRunning []int
@@ -41,7 +40,7 @@ func sender(outgoing <-chan EventMessage, ID int) {
 		select {
 		case out = <-outgoing:
 			fmt.Println("STx: Sending Message")
-			msgID = rand.Int() //gives the message a random ID
+			msgID := rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
 			needAck = append(needAck, msgID)
@@ -59,10 +58,13 @@ func sender(outgoing <-chan EventMessage, ID int) {
 			if !slices.Contains(timerRunning, msgID) {
 				fmt.Println("STx: Starting timer")
 				timerRunning = append(timerRunning, msgID)
+
 				time.AfterFunc(time.Millisecond*1000, func() {
+
 					fmt.Println("STx: Ack timeout", timerRunning)
 					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
 					timerRunning = timerRunning[:len(timerRunning)-1]
+
 					if slices.Contains(needAck, msgID) {
 						fmt.Println("STx: No ack received")
 						tx <- out
