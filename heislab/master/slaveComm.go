@@ -11,6 +11,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
+
 // how do I clear orders?
 func receiveMessagesFromSlaves(stateUpdateCh chan<- [config.N_ELEVATORS]slave.Elevator, callsUpdateCh chan<- slave.Calls) {
 	slaveRx := make(chan slave.EventMessage)
@@ -40,6 +41,7 @@ func receiveMessagesFromSlaves(stateUpdateCh chan<- [config.N_ELEVATORS]slave.El
 }
 
 func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
+
 	//rx channel for receiving from each slave
 	rx := make(chan slave.EventMessage)
 	go bcast.Receiver(config.SlaveBasePort+slaveID, rx)
@@ -61,6 +63,36 @@ func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
 			slaveRx <- msg
 		}
 	}
+}
+
+// TODO fix logic for removing hall calls, because it doesnt really make any sense to me
+func makeRemoveCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
+	var callsUpdate slave.UpdateCalls
+	callsUpdate.AddCall = false
+	callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Elevator.Floor] = true
+	callsUpdate.Calls.HallCalls[msg.Elevator.Floor][0] = true
+	callsUpdate.Calls.HallCalls[msg.Elevator.Floor][1] = true
+	if msg.Elevator.Floor == 0 {
+		callsUpdate.Calls.HallCalls[0][elevio.BT_HallDown] = false
+	} else if msg.Elevator.Floor == config.N_FLOORS-1 {
+		callsUpdate.Calls.HallCalls[config.N_FLOORS-1][elevio.BT_HallUp] = false
+	} else if msg.Elevator.Direction == slave.D_Down {
+		callsUpdate.Calls.HallCalls[msg.Elevator.Floor][elevio.BT_HallUp] = false
+	} else if msg.Elevator.Direction == slave.D_Up {
+		callsUpdate.Calls.HallCalls[msg.Elevator.Floor][elevio.BT_HallDown] = false
+	}
+	return callsUpdate
+}
+
+func makeAddCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
+	var callsUpdate slave.UpdateCalls
+	callsUpdate.AddCall = true
+	if msg.Btn.Button == elevio.BT_Cab {
+		callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Btn.Floor] = true
+	} else {
+		callsUpdate.Calls.HallCalls[msg.Btn.Floor][msg.Btn.Button] = true
+	}
+	return callsUpdate
 }
 
 func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {

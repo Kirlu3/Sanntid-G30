@@ -8,11 +8,10 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
-	"github.com/mohae/deepcopy"
 )
 
 func backupsTx(callsToBackupsCh <-chan slave.Calls, masterCallsTx chan<- slave.BackupCalls, initCalls slave.BackupCalls) {
-	calls := deepcopy.Copy(initCalls).(slave.BackupCalls)
+	calls := initCalls
 	for {
 		select {
 		case calls.Calls = <-callsToBackupsCh:
@@ -43,9 +42,8 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
 func backupAckRx(
-	callsUpdateCh <-chan slave.Calls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
+	callsUpdateCh <-chan slave.UpdateCalls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
 	callsToAssignCh chan<- slave.AssignCalls,
-	endMasterPhaseCh chan<- struct{},
 	initCalls slave.BackupCalls,
 	masterCallsTx chan<- slave.BackupCalls,
 	masterCallsRx <-chan slave.BackupCalls,
@@ -61,17 +59,23 @@ func backupAckRx(
 	// for all channels consider if it is nicer to start them here or in master()
 	go lookForOtherMasters(otherMasterCallsCh, Id, masterCallsRx)
 	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
-	go backupsTx(callsToBackupsCh, masterCallsTx, deepcopy.Copy(initCalls).(slave.BackupCalls))
+	go backupsTx(callsToBackupsCh, masterCallsTx, initCalls)
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
-	calls := deepcopy.Copy(initCalls).(slave.Calls)
+	calls := initCalls.Calls
 	wantReassignment := false
 mainLoop:
 	for {
+		// fmt.Println("blocking?")
 		select {
-		case callsUpdate := <-callsUpdateCh: // when we receive new calls reset all acks, THE LOGIC HERE WILL BE MORE COMPLICATED NOW
-			calls = updatedCalls(calls, callsUpdate) //TODO: calculate the updated calls based on calls and the new message
+		case callsUpdate := <-callsUpdateCh:
+			if callsUpdate.AddCall == true {
+				calls = union(calls, callsUpdate.Calls)
+			} else {
+				calls = removeCalls(calls, callsUpdate.Calls)
+			}
+			callsToBackupsCh <- calls
 			wantReassignment = true
 			for i := range acksReceived {
 				acksReceived[i] = false
@@ -82,8 +86,8 @@ mainLoop:
 
 		select {
 		case a := <-backupCallsRx: // set ack for backup if it has the same calls
-			if a.Calls == calls {
-				// fmt.Println("new backup state from", a.Id)
+			if a.Calls == calls && !acksReceived[a.Id] {
+				fmt.Println("new backup state from", a.Id)
 				acksReceived[a.Id] = true
 			}
 		default:
@@ -92,6 +96,21 @@ mainLoop:
 		select {
 		case aliveBackups = <-aliveBackupsCh:
 			wantReassignment = true
+		default:
+		}
+
+		select {
+		case otherMasterCalls := <-otherMasterCallsCh:
+			if otherMasterCalls.Id < Id && isCallsSubset(calls, otherMasterCalls.Calls) {
+				// just crash the program
+				panic("find a better way to restart the program")
+
+			} else if otherMasterCalls.Id > Id {
+				calls = union(calls, otherMasterCalls.Calls)
+				callsToBackupsCh <- calls
+			} else {
+				fmt.Println("couldn't end master phase: other master has not accepted our calls")
+			}
 		default:
 		}
 
@@ -116,4 +135,56 @@ mainLoop:
 			wantReassignment = false
 		}
 	}
+}
+
+// returns true if calls1 is a subset of calls2
+func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
+			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
+				return false
+			}
+		}
+	}
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
+			if calls1.HallCalls[i][j] && !calls2.HallCalls[i][j] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// returns the union of the calls in calls1 and calls2
+func union(calls1 slave.Calls, calls2 slave.Calls) slave.Calls {
+	var unionCalls slave.Calls
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
+			unionCalls.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
+		}
+	}
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
+			unionCalls.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
+		}
+	}
+	return unionCalls
+}
+
+// returns calls \ removedCalls, where \ is set difference
+func removeCalls(calls slave.Calls, removedCalls slave.Calls) slave.Calls {
+	updatedCalls := calls
+
+	for i := range config.N_ELEVATORS {
+		for j := range config.N_FLOORS {
+			updatedCalls.CabCalls[i][j] = calls.CabCalls[i][j] && !removedCalls.CabCalls[i][j]
+		}
+	}
+	for i := range config.N_FLOORS {
+		for j := range config.N_BUTTONS - 1 {
+			updatedCalls.HallCalls[i][j] = calls.HallCalls[i][j] && !removedCalls.HallCalls[i][j]
+		}
+	}
+	return updatedCalls
 }

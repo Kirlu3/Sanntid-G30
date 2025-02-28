@@ -70,8 +70,8 @@ func Backup(id string) {
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
-		case <-time.After(time.Second * 1):
-			fmt.Println("backup select blocked for 1 seconds. this should only happen if there are no masters")
+		case <-time.After(time.Second * 2):
+			fmt.Println("backup select blocked for 2 seconds. this should only happen if there are no masters, maybe this is too short?")
 		}
 		backupCallsTx <- calls
 		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {

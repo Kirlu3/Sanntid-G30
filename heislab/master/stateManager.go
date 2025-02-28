@@ -124,8 +124,7 @@ func stateManager(
 			if strconv.Itoa(otherMasterCalls.Id) > worldview.OwnId {
 				// continue to be the master
 			} else if strconv.Itoa(otherMasterCalls.Id) < worldview.OwnId {
-				if (isCallsSubset(slave.Calls{HallCalls: worldview.HallCalls, CabCalls: worldview.CabCalls},
-					slave.Calls{HallCalls: otherMasterCalls.Calls.HallCalls, CabCalls: otherMasterCalls.Calls.CabCalls})) {
+				if worldview.HallCalls == otherMasterCalls.Calls.HallCalls && worldview.CabCalls == otherMasterCalls.Calls.CabCalls {
 					endMasterPhase <- struct{}{}
 				}
 			}
@@ -137,36 +136,4 @@ func stateManager(
 	}
 }
 
-// returns true if calls1 is a subset of calls2
-func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
-	for i := range config.N_ELEVATORS {
-		for j := range config.N_FLOORS {
-			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
-				return false
-			}
-		}
-	}
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS - 1 {
-			if calls1.HallCalls[i][j] && !calls2.HallCalls[i][j] {
-				return false
-			}
-		}
-	}
-	return true
-}
 
-// this is supposed to be some union function
-func adhdhd(calls1 slave.Calls, calls2 slave.Calls) bool {
-	for i := range config.N_ELEVATORS {
-		for j := range config.N_FLOORS {
-			calls1.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
-		}
-	}
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS - 1 {
-			calls1.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
-		}
-	}
-	return true
-}
