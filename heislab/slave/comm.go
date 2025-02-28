@@ -47,13 +47,15 @@ func sender(outgoing <-chan EventMessage, ID int) {
 			ackTimeout <- msgID
 
 		case ackID := <-ack:
+			var ackIndex int
 			for i := range len(needAck) {
 				if needAck[i].MsgID == ackID {
+					ackIndex = i
 					fmt.Println("STx: Received ack")
-					needAck[i] = needAck[len(needAck)-1]
-					needAck = needAck[:len(needAck)-1]
 				}
 			}
+			needAck[ackIndex] = needAck[len(needAck)-1]
+			needAck = needAck[:len(needAck)-1]
 
 		case msgID := <-ackTimeout:
 			// fmt.Println("STx: Waiting for ack")
