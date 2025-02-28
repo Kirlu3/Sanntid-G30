@@ -34,8 +34,8 @@ func Master(
 	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, masterCallsTx, masterCallsRx, backupCallsRx, backupsUpdateCh)
 	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
 
-	receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh) //starts other go routines
-	go sendMessagesToSlaves(assignmentsToSlaveCh)           // orders (+ lights?) ??
+	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh) //starts other go routines
+	go sendMessagesToSlaves(assignmentsToSlaveCh)              // orders (+ lights?) ??
 
 	select {}
 	// to end the goroutines, close their channels (and add logic in the goroutines to return when channels are closed)

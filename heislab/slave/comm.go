@@ -24,7 +24,6 @@ type EventMessage struct {
 	Elevator Elevator           //Sends its own elevator struct, always
 	Event    EventType          //Sends the type of event
 	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
-	Check    bool               //Sends a boolean for either Stuck or Light
 }
 
 func sender(outgoing <-chan EventMessage, ID int) {
