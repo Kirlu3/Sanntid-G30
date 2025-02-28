@@ -31,46 +31,47 @@ func sender(outgoing <-chan EventMessage, ID int) {
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
 	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
-	ackTimeout := make(chan EventMessage, 2)
-	var needAck []int
-	var timerRunning []EventMessage
+	ackTimeout := make(chan int, 2)
+	var needAck []EventMessage
+	var timerRunning []int
+	var out EventMessage
 
 	for {
 		select {
-		case out := <-outgoing:
+		case out = <-outgoing:
 			fmt.Println("STx: Sending Message")
 			msgID := rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
-			needAck = append(needAck, msgID)
-			ackTimeout <- out
+			needAck = append(needAck, out)
+			ackTimeout <- msgID
 
 		case ackID := <-ack:
-
-			if slices.Contains(needAck, ackID) {
-				needAck[slices.Index(needAck, ackID)] = needAck[len(needAck)-1]
-				needAck = needAck[:len(needAck)-1]
-				fmt.Println("STx: Received ack")
+			for i := range len(needAck) {
+				if needAck[i].MsgID == ackID {
+					fmt.Println("STx: Received ack")
+					needAck[i] = needAck[len(needAck)-1]
+					needAck = needAck[:len(needAck)-1]
+				}
 			}
 
-		case out := <-ackTimeout:
+		case msgID := <-ackTimeout:
 			// fmt.Println("STx: Waiting for ack")
-			if !slices.Contains(timerRunning, out) {
+			if !slices.Contains(timerRunning, msgID) {
 				fmt.Println("STx: Starting timer")
-				timerRunning = append(timerRunning, out)
+				timerRunning = append(timerRunning, msgID)
 
 				time.AfterFunc(time.Millisecond*1000, func() {
 
 					fmt.Println("STx: Ack timeout", timerRunning)
-					timerRunning[slices.Index(timerRunning, out)] = timerRunning[len(timerRunning)-1]
+					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
 					timerRunning = timerRunning[:len(timerRunning)-1]
-
-					if slices.Contains(needAck, out.MsgID) {
-						fmt.Println("STx: No ack received")
-						tx <- out
-						ackTimeout <- out
-					} else {
-						fmt.Println("STx: Ack previously received")
+					for i := range len(needAck) {
+						if needAck[i].MsgID == msgID {
+							tx <- needAck[i]
+							ackTimeout <- msgID
+							break
+						}
 					}
 				})
 			}
