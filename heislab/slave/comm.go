@@ -65,12 +65,8 @@ func sender(outgoing <-chan EventMessage, ID int) {
 					timerRunning = timerRunning[:len(timerRunning)-1]
 					if slices.Contains(needAck, msgID) {
 						fmt.Println("STx: No ack received")
-						// fmt.Println("STx: No ack received")
 						tx <- out
-						// fmt.Println("STx: Resent message")
 						ackTimeout <- msgID
-						// fmt.Println("STx: Resent ack timeout")
-						fmt.Println("STx: Resent message")
 					} else {
 						fmt.Println("STx: Ack previously received")
 					}
