@@ -24,7 +24,6 @@ type EventMessage struct {
 	Elevator Elevator           //Sends its own elevator struct, always
 	Event    EventType          //Sends the type of event
 	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
-	Check    bool               //Sends a boolean for either Stuck or Light
 }
 
 func sender(outgoing <-chan EventMessage, ID int) {
@@ -61,9 +60,9 @@ func sender(outgoing <-chan EventMessage, ID int) {
 				fmt.Println("STx: Starting timer")
 				timerRunning = append(timerRunning, msgID)
 				time.AfterFunc(time.Millisecond*1000, func() {
+					fmt.Println("STx: Ack timeout", timerRunning)
 					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
 					timerRunning = timerRunning[:len(timerRunning)-1]
-					fmt.Println("STx: Ack timeout", timerRunning)
 					if slices.Contains(needAck, msgID) {
 						fmt.Println("STx: No ack received")
 						// fmt.Println("STx: No ack received")

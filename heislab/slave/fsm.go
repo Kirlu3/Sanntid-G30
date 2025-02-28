@@ -55,7 +55,16 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 }
 
 func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
+	fmt.Println("onObstruction")
 	elevator.Stuck = obstruction
+	if obstruction {
+		elevator.Behaviour = EB_DoorOpen
+		elevator.Direction = D_Stop
+	} else {
+		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
+		elevator.Direction = pair.Direction
+		elevator.Behaviour = pair.Behaviour
+	}
 	return elevator
 }
 

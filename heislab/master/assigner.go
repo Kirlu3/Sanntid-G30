@@ -39,6 +39,7 @@ func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
 	callsToAssignCh <-chan slave.AssignCalls,
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
 	var state slave.WorldView // consider waiting for state init
 	for {
@@ -61,6 +62,7 @@ func assignOrders(
 				assignments := assign(state)
 				//fmt.Printf("assigned:%v\n", assignments)
 				assignmentsToSlaveCh <- assignments
+				assignmentsToSlaveReceiver <- assignments
 				fmt.Println("As:Succeded")
 			default:
 			}

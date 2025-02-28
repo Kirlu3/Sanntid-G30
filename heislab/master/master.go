@@ -25,17 +25,18 @@ func Master(
 	// go slaveStateRx()
 	// go slaveCallsRx()
 
-	callsUpdateCh := make(chan slave.UpdateCalls)
+	callsUpdateCh := make(chan slave.UpdateCalls, 2)
 	callsToAssignCh := make(chan slave.AssignCalls)
 
 	stateUpdateCh := make(chan slave.Elevator)
 	assignmentsToSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	assignmentsToSlaveReceiver := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool, 2)
 
 	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, masterCallsTx, masterCallsRx, backupCallsRx, backupsUpdateCh)
-	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
+	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh, assignmentsToSlaveReceiver)
 
-	receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh) //starts other go routines
-	go sendMessagesToSlaves(assignmentsToSlaveCh)           // orders (+ lights?) ??
+	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiver) //starts other go routines
+	go sendMessagesToSlaves(assignmentsToSlaveCh)                                          // orders (+ lights?) ??
 
 	select {}
 	// to end the goroutines, close their channels (and add logic in the goroutines to return when channels are closed)
