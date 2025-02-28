@@ -37,8 +37,8 @@ func Master(
 	go backupAckRx(callsUpdateCh, callsToAssignCh, endMasterPhaseCh, initCalls, masterCallsTx, masterCallsRx, backupCallsRx, backupsUpdateCh)
 	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
 
-	receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh) //starts other go routines
-	go sendMessagesToSlaves(assignmentsToSlaveCh)           // orders (+ lights?) ??
+	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh) //starts other go routines
+	go sendMessagesToSlaves(assignmentsToSlaveCh)              // orders (+ lights?) ??
 
 	<-endMasterPhaseCh
 	masterTxEnable <- false
