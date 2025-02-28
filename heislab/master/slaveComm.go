@@ -45,14 +45,25 @@ func receiveMessageFromSlave(stateUpdateCh chan<- slave.Elevator, callsUpdateCh 
 	}
 }
 
+// TODO fix logic for removing hall calls, because it doesnt really make any sense to me
 func makeRemoveCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
 	var callsUpdate slave.UpdateCalls
 	callsUpdate.AddCall = false
 	callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Elevator.Floor] = true
+	callsUpdate.Calls.HallCalls[msg.Elevator.Floor][0] = true
+	callsUpdate.Calls.HallCalls[msg.Elevator.Floor][1] = true
+	if msg.Elevator.Floor == 0 {
+		callsUpdate.Calls.HallCalls[0][elevio.BT_HallDown] = false
+	} else if msg.Elevator.Floor == config.N_FLOORS-1 {
+		callsUpdate.Calls.HallCalls[config.N_FLOORS-1][elevio.BT_HallUp] = false
+	} else if msg.Elevator.Direction == slave.D_Down {
+		callsUpdate.Calls.HallCalls[msg.Elevator.Floor][elevio.BT_HallUp] = false
+	} else if msg.Elevator.Direction == slave.D_Up {
+		callsUpdate.Calls.HallCalls[msg.Elevator.Floor][elevio.BT_HallDown] = false
+	}
 	return callsUpdate
 }
 
-// TODO fix logic for removing hall calls, because it doesnt really make any sense to me
 func makeAddCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
 	var callsUpdate slave.UpdateCalls
 	callsUpdate.AddCall = true

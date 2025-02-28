@@ -67,6 +67,7 @@ func backupAckRx(
 	wantReassignment := false
 mainLoop:
 	for {
+		// fmt.Println("blocking?")
 		select {
 		case callsUpdate := <-callsUpdateCh:
 			if callsUpdate.AddCall == true {
@@ -74,6 +75,7 @@ mainLoop:
 			} else {
 				calls = removeCalls(calls, callsUpdate.Calls)
 			}
+			callsToBackupsCh <- calls
 			wantReassignment = true
 			for i := range acksReceived {
 				acksReceived[i] = false
@@ -84,8 +86,8 @@ mainLoop:
 
 		select {
 		case a := <-backupCallsRx: // set ack for backup if it has the same calls
-			if a.Calls == calls {
-				// fmt.Println("new backup state from", a.Id)
+			if a.Calls == calls && !acksReceived[a.Id] {
+				fmt.Println("new backup state from", a.Id)
 				acksReceived[a.Id] = true
 			}
 		default:
@@ -105,6 +107,7 @@ mainLoop:
 
 			} else if otherMasterCalls.Id > Id {
 				calls = union(calls, otherMasterCalls.Calls)
+				callsToBackupsCh <- calls
 			} else {
 				fmt.Println("couldn't end master phase: other master has not accepted our calls")
 			}
@@ -180,7 +183,7 @@ func removeCalls(calls slave.Calls, removedCalls slave.Calls) slave.Calls {
 	}
 	for i := range config.N_FLOORS {
 		for j := range config.N_BUTTONS - 1 {
-			updatedCalls.HallCalls[i][j] = calls.HallCalls[i][j] || !removedCalls.HallCalls[i][j]
+			updatedCalls.HallCalls[i][j] = calls.HallCalls[i][j] && !removedCalls.HallCalls[i][j]
 		}
 	}
 	return updatedCalls
