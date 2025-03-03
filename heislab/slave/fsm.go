@@ -4,6 +4,13 @@ import (
 	"fmt"
 )
 
+/*
+	Activates when the elevator is initialized
+
+Input: the old elevator object
+
+Returns: the new elevator object with updated direction and behaviour
+*/
 func fsm_onInit(elevator Elevator) Elevator {
 	fmt.Println("onInit")
 	elevator.Direction = D_Down
