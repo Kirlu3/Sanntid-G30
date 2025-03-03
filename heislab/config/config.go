@@ -8,6 +8,7 @@ const (
 
 // network
 const (
+	WatchdogPort               = 15500
 	MasterUpdatePort           = 30019
 	BackupsUpdatePort          = 30029
 	MasterWorldviewPort        = 30039
