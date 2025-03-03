@@ -16,14 +16,14 @@ func fsm_onRequests(elevator Elevator) Elevator {
 	fmt.Println("onRequest")
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
-		elevator = Requests_clearAtCurrentFloor(elevator)
+		elevator = requests_clearAtCurrentFloor(elevator)
 	case EB_Moving:
 	case EB_Idle:
-		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
-		elevator.Direction = pair.Direction
-		elevator.Behaviour = pair.Behaviour
+		direction, behaviour := requests_chooseDirection(elevator)
+		elevator.Direction = direction
+		elevator.Behaviour = behaviour
 		if elevator.Behaviour == EB_DoorOpen {
-			elevator = Requests_clearAtCurrentFloor(elevator)
+			elevator = requests_clearAtCurrentFloor(elevator)
 		}
 	}
 	return elevator
@@ -35,8 +35,8 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
 	case EB_Moving:
-		if Requests_shouldStop(elevator) { //This causes the door to open on init, probably fine?
-			elevator = Requests_clearAtCurrentFloor(elevator)
+		if requests_shouldStop(elevator) { //This causes the door to open on init, probably fine?
+			elevator = requests_clearAtCurrentFloor(elevator)
 			elevator.Behaviour = EB_DoorOpen
 		}
 	}
@@ -50,9 +50,9 @@ func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 		elevator.Behaviour = EB_DoorOpen
 		elevator.Direction = D_Stop
 	} else {
-		var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
-		elevator.Direction = pair.Direction
-		elevator.Behaviour = pair.Behaviour
+		direction, behaviour := requests_chooseDirection(elevator)
+		elevator.Direction = direction
+		elevator.Behaviour = behaviour
 	}
 	return elevator
 }
@@ -68,9 +68,9 @@ func fsm_onTimerEnd(elevator Elevator) Elevator {
 		fmt.Println("FSM:onTimerEnd DO")
 
 		if !elevator.Stuck {
-			var pair DirectionBehaviourPair = Requests_chooseDirection(elevator)
-			elevator.Direction = pair.Direction
-			elevator.Behaviour = pair.Behaviour
+			direction, behaviour := requests_chooseDirection(elevator)
+			elevator.Direction = direction
+			elevator.Behaviour = behaviour
 		}
 	case EB_Moving:
 		fmt.Println("FSM:onTimerEnd M")

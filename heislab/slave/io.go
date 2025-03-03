@@ -8,7 +8,7 @@ import (
 const doorOpenDuration = 3
 const timeBetweenFloors = 5
 
-func activateIO(n_elevator Elevator, elevator Elevator, t_start chan int) {
+func io_activateIO(n_elevator Elevator, elevator Elevator, t_start chan int) {
 
 	elevio.SetFloorIndicator(n_elevator.Floor) //Floor IO
 
@@ -29,7 +29,7 @@ func activateIO(n_elevator Elevator, elevator Elevator, t_start chan int) {
 	}
 }
 
-func updateLights(lights [config.N_FLOORS][config.N_BUTTONS]bool) {
+func io_updateLights(lights [config.N_FLOORS][config.N_BUTTONS]bool) {
 	for i := range config.N_FLOORS {
 		for j := range config.N_BUTTONS {
 			elevio.SetButtonLamp(elevio.ButtonType(j), i, lights[i][j])

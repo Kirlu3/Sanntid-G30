@@ -30,7 +30,8 @@ type Elevator struct {
 	ID        int //ID int vs Id string ???
 }
 
-func validElevator(elevator Elevator) bool {
+// Checks if the new elevator object is within the bounds of the elevator system
+func elevator_validElevator(elevator Elevator) bool {
 	return elevator.Behaviour >= EB_Idle && elevator.Behaviour <= EB_Moving && //Behaviour in bounds
 		elevator.Direction >= D_Down && elevator.Direction <= D_Up && //Direction in bounds
 		elevator.Floor > -1 && elevator.Floor < config.N_FLOORS && //Floor in bounds
@@ -39,12 +40,12 @@ func validElevator(elevator Elevator) bool {
 }
 
 // Not a pure function as it also activates IO, I think this is fine though
-func updateElevator(n_elevator Elevator, elevator Elevator, tx chan<- EventMessage, t_start chan int) Elevator {
-	if validElevator(n_elevator) {
+func elevator_updateElevator(n_elevator Elevator, elevator Elevator, tx chan<- EventMessage, t_start chan int) Elevator {
+	if elevator_validElevator(n_elevator) {
 		if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
 			tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
 		}
-		activateIO(n_elevator, elevator, t_start)
+		io_activateIO(n_elevator, elevator, t_start)
 		return n_elevator
 	} else {
 		panic("Invalid elevator")

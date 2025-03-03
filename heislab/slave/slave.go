@@ -34,21 +34,18 @@ func Slave(id string) {
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go sender(tx, ID)                   //Routine for sending messages to master
-	go receiver(ordersRx, lightsRx, ID) //Routine for receiving messages from master
+	go comm_sender(tx, ID)                   //Routine for sending messages to master
+	go comm_receiver(ordersRx, lightsRx, ID) //Routine for receiving messages from master
 
 	//initialize elevator
 	var elevator Elevator
 	elevator.ID = ID
+	io_updateLights(elevator.Requests)
+	//initialize elevator
 	n_elevator := fsm_onInit(elevator)
-	updateLights(n_elevator.Requests)
-	if validElevator(n_elevator) {
-		activateIO(n_elevator, elevator, t_start)
-		elevator = n_elevator
-	}
+	io_updateLights(n_elevator.Requests)
+	elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
-	//send initial state to master
-	//main loop (too long?)
 	for {
 		fmt.Println("FSM:New Loop")
 		select {
@@ -57,7 +54,7 @@ func Slave(id string) {
 
 			elevator.Requests = msg
 			n_elevator = fsm_onRequests(elevator)
-			elevator = updateElevator(n_elevator, elevator, tx, t_start)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
 			if elevator.Behaviour == EB_DoorOpen {
 				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
@@ -65,7 +62,7 @@ func Slave(id string) {
 
 		case msg := <-lightsRx:
 			fmt.Println("Slave: Updating lights")
-			updateLights(msg)
+			io_updateLights(msg)
 
 		case btn := <-drv_buttons: //button press
 			fmt.Println("Slave: Button press")
@@ -74,13 +71,13 @@ func Slave(id string) {
 		case floor := <-drv_floors:
 			fmt.Println("FSM: Floor arrival", floor)
 			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
-			elevator = updateElevator(n_elevator, elevator, tx, t_start)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
 			tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
 
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)
-			elevator = updateElevator(n_elevator, elevator, tx, t_start)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
 		case <-drv_stop:
 			fsm_onStopButtonPress()
@@ -89,7 +86,7 @@ func Slave(id string) {
 			fmt.Println("FSM: Timer end")
 
 			n_elevator = fsm_onTimerEnd(elevator)
-			elevator = updateElevator(n_elevator, elevator, tx, t_start)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 		}
 	}
 }

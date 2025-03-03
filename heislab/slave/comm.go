@@ -3,7 +3,6 @@ package slave
 import (
 	"fmt"
 	"math/rand/v2"
-	"slices"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -26,14 +25,13 @@ type EventMessage struct {
 	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
 }
 
-func sender(outgoing <-chan EventMessage, ID int) {
+func comm_sender(outgoing <-chan EventMessage, ID int) {
 	tx := make(chan EventMessage)
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
 	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
-	ackTimeout := make(chan int, 2)
+	ackTimeout := make(chan int, 10)
 	var needAck []EventMessage
-	var timerRunning []int
 	var out EventMessage
 
 	for {
@@ -59,30 +57,23 @@ func sender(outgoing <-chan EventMessage, ID int) {
 
 		case msgID := <-ackTimeout:
 			// fmt.Println("STx: Waiting for ack")
-			if !slices.Contains(timerRunning, msgID) {
-				fmt.Println("STx: Starting timer")
-				timerRunning = append(timerRunning, msgID)
-
-				time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
-
-					fmt.Println("STx: Ack timeout", timerRunning)
-					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]
-					timerRunning = timerRunning[:len(timerRunning)-1]
-					for i := range len(needAck) {
-						if needAck[i].MsgID == msgID {
-							tx <- needAck[i]
-							ackTimeout <- msgID
-							break
-						}
+			fmt.Println("STx: Starting timer")
+			//Potential for race condition on needAck
+			time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
+				fmt.Println("STx: Ack timeout")
+				for i := range len(needAck) {
+					if needAck[i].MsgID == msgID {
+						tx <- needAck[i]
+						ackTimeout <- msgID
+						break
 					}
-				})
-			}
-
+				}
+			})
 		}
 	}
 }
 
-func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, ID int) {
+func comm_receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, ID int) {
 
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Receiver(config.SlaveBasePort-1, rx)
@@ -96,14 +87,15 @@ func receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx 
 			//I assume there's an easier way to do this, but I need to loop through to get all active orders before sending out
 			lights := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
-			for i := range config.N_ELEVATORS {
-				for j := range config.N_FLOORS {
-					lights[j][elevio.BT_Cab] = msg[ID][j][elevio.BT_Cab]
-					lights[j][elevio.BT_HallUp] = lights[j][elevio.BT_HallUp] || msg[i][j][elevio.BT_HallUp]
-					lights[j][elevio.BT_HallDown] = lights[j][elevio.BT_HallDown] || msg[i][j][elevio.BT_HallDown]
+			for id := range config.N_ELEVATORS {
+				for floor := range config.N_FLOORS {
+					lights[floor][elevio.BT_Cab] = msg[ID][floor][elevio.BT_Cab]
+					lights[floor][elevio.BT_HallUp] = lights[floor][elevio.BT_HallUp] || msg[id][floor][elevio.BT_HallUp]
+					lights[floor][elevio.BT_HallDown] = lights[floor][elevio.BT_HallDown] || msg[id][floor][elevio.BT_HallDown]
 				}
 			}
 			lightsRx <- lights
+
 		} else {
 			continue
 		}
