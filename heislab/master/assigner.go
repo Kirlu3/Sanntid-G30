@@ -42,6 +42,9 @@ func assignOrders(
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
 	var state WorldView // consider waiting for state init
+	for i := range config.N_ELEVATORS {
+		state.Elevators[i].ID = i // suggested fix to assigner init bug
+	}
 	for {
 		select {
 		case stateUpdate := <-stateUpdateCh:

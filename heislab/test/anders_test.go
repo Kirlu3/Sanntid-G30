@@ -34,6 +34,7 @@ func foo() {
 
 }
 
+// monitor the master and backup update port
 func TestListenBackupMasterUpdate(t *testing.T) {
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	backupUpdateCh := make(chan peers.PeerUpdate)
@@ -41,7 +42,6 @@ func TestListenBackupMasterUpdate(t *testing.T) {
 	go peers.Receiver(config.BackupsUpdatePort, backupUpdateCh)
 
 	for {
-		time.Sleep(100 * time.Millisecond)
 		select {
 		case p := <-masterUpdateCh:
 			fmt.Printf("master update:\n")
@@ -59,6 +59,7 @@ func TestListenBackupMasterUpdate(t *testing.T) {
 	}
 }
 
+// monitor the master update port
 func TestListenMasterUpdate(t *testing.T) {
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
@@ -75,12 +76,12 @@ func TestListenMasterUpdate(t *testing.T) {
 	}
 }
 
+// monitor the backup update port
 func TestListenBackupUpdate(t *testing.T) {
 	backupUpdateCh := make(chan peers.PeerUpdate)
 	go peers.Receiver(config.BackupsUpdatePort, backupUpdateCh)
 
 	for {
-		time.Sleep(1 * time.Second)
 		select {
 		case p := <-backupUpdateCh:
 			fmt.Printf("backup update:\n")

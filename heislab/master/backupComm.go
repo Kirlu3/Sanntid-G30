@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
-func backupsTx(callsToBackupsCh <-chan Calls, masterCallsTx chan<- BackupCalls, initCalls BackupCalls) {
+func backupsTx(callsToBackupsCh <-chan Calls, initCalls BackupCalls) {
+	masterCallsTx := make(chan BackupCalls)
+	go bcast.Transmitter(config.MasterCallsPort, masterCallsTx)
 	calls := initCalls
 	for {
 		select {
@@ -23,10 +26,10 @@ func backupsTx(callsToBackupsCh <-chan Calls, masterCallsTx chan<- BackupCalls, 
 
 }
 
-func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers.PeerUpdate) {
-	// a := <-backupsUpdateCh
+func aliveBackupsRx(aliveBackupsCh chan<- []string) {
+	backupsUpdateCh := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
 	var aliveBackups []string
-	// aliveBackupsCh <- aliveBackups
 	for {
 		a := <-backupsUpdateCh
 		fmt.Printf("Backups update:\n")
@@ -45,26 +48,24 @@ func backupAckRx(
 	callsUpdateCh <-chan UpdateCalls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
 	callsToAssignCh chan<- AssignCalls,
 	initCalls BackupCalls,
-	masterCallsTx chan<- BackupCalls,
-	masterCallsRx <-chan BackupCalls,
-	backupCallsRx <-chan BackupCalls,
-	backupsUpdateCh <-chan peers.PeerUpdate,
 ) {
 	Id := initCalls.Id
 
 	otherMasterCallsCh := make(chan BackupCalls)
 	aliveBackupsCh := make(chan []string)
 	callsToBackupsCh := make(chan Calls)
+	backupCallsRx := make(chan BackupCalls)
+	
 
-	// for all channels consider if it is nicer to start them here or in master()
-	go lookForOtherMasters(otherMasterCallsCh, Id, masterCallsRx)
-	go aliveBackupsRx(aliveBackupsCh, backupsUpdateCh)
-	go backupsTx(callsToBackupsCh, masterCallsTx, initCalls)
+	go bcast.Receiver(config.BackupsCallsPort, backupCallsRx)
+	go lookForOtherMasters(otherMasterCallsCh, Id)
+	go aliveBackupsRx(aliveBackupsCh)
+	go backupsTx(callsToBackupsCh, initCalls)
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
 	calls := initCalls.Calls
-	wantReassignment := false
+	wantReassignment := false //why?
 mainLoop:
 	for {
 		// fmt.Println("blocking?")
@@ -172,7 +173,7 @@ func union(calls1 Calls, calls2 Calls) Calls {
 	return unionCalls
 }
 
-// returns calls \ removedCalls, where \ is set difference
+// returns the set difference of calls and removedCalls
 func removeCalls(calls Calls, removedCalls Calls) Calls {
 	updatedCalls := calls
 

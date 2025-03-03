@@ -13,29 +13,20 @@ import (
 )
 
 func Backup(id string) {
-
-	// one time setup of communication between master and backup
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	backupsUpdateCh := make(chan peers.PeerUpdate)
-	masterTxEnable := make(chan bool)
 	backupsTxEnable := make(chan bool)
-	masterCallsTx := make(chan master.BackupCalls)
 	backupCallsTx := make(chan master.BackupCalls)
 	masterCallsRx := make(chan master.BackupCalls)
-	backupCallsRx := make(chan master.BackupCalls)
 
-	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
-	masterTxEnable <- false // this is dangerous as we risk briefly claiming to be master even though we are not, it seems as long as it takes less than interval it is fine
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 
 	go peers.Transmitter(config.BackupsUpdatePort, id, backupsTxEnable)
 	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
 
-	go bcast.Transmitter(config.MasterWorldviewPort, masterCallsTx)
-	go bcast.Transmitter(config.BackupsWorldviewPort, backupCallsTx)
+	go bcast.Transmitter(config.BackupsCallsPort, backupCallsTx)
 
-	go bcast.Receiver(config.MasterWorldviewPort, masterCallsRx)
-	go bcast.Receiver(config.BackupsWorldviewPort, backupCallsRx)
+	go bcast.Receiver(config.MasterCallsPort, masterCallsRx)
 
 	fmt.Println("Backup Started: ", id)
 	var backupsUpdate peers.PeerUpdate
@@ -82,9 +73,8 @@ func Backup(id string) {
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls, masterCallsTx, masterCallsRx, backupCallsRx, masterTxEnable, backupsUpdateCh)
-			backupsTxEnable <- true
-			masterUpgradeCooldown.Reset(time.Second * 2)
+			master.Master(calls)
+			panic("the master phase should never return")
 		}
 	}
 }

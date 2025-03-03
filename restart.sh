@@ -5,7 +5,8 @@ if [ "$#" -lt 2 ]; then
 fi
 
 while true; do
-    go run heislab/main.go -id=$1 -port=$2
+    go build -o main heislab/main.go
+    ./main -id="$1" -port="$2"
     exit_code=$?
     if [ $exit_code -eq 42 ]; then
         echo "Restarting to  (exit code 42)"

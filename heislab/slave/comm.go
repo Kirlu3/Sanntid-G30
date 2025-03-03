@@ -57,7 +57,7 @@ func comm_sender(outgoing <-chan EventMessage, ID int) {
 					fmt.Println("STx: Received ack")
 				}
 			}
-			needAck[ackIndex] = needAck[len(needAck)-1]
+			needAck[ackIndex] = needAck[len(needAck)-1] // this line gave me panic: runtime error: index out of range [-1], how is that possible? ahh length was 0 i assume
 			needAck = needAck[:len(needAck)-1]
 
 		case msgID := <-ackTimeout:
