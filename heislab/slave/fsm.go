@@ -12,6 +12,13 @@ func fsm_onInit(elevator Elevator) Elevator {
 	return elevator
 }
 
+/*
+	Activates when the elevator receives new requests
+
+Input: the old elevator object with updated requests
+
+Returns: the new elevator object with updated direction and behaviour
+*/
 func fsm_onRequests(elevator Elevator) Elevator {
 	fmt.Println("onRequest")
 	switch elevator.Behaviour {
@@ -29,6 +36,13 @@ func fsm_onRequests(elevator Elevator) Elevator {
 	return elevator
 }
 
+/*
+	Activates when the elevator floor sensor is triggered
+
+Input: the new floor and the old elevator object
+
+Returns: the new elevator object
+*/
 func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	elevator.Stuck = false //if the elevator arrives at a floor, it is not stuck
 	fmt.Println("onFloorArrival")
@@ -43,6 +57,13 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	return elevator
 }
 
+/*
+	Activates when the obstruction sensor is triggered
+
+Input: the old elevator object with updated obstruction status and behaviour
+
+Returns: the new elevator object
+*/
 func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	fmt.Println("onObstruction")
 	elevator.Stuck = obstruction
@@ -57,10 +78,23 @@ func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	return elevator
 }
 
+/*
+	Activates when the stop button sensor is triggered
+
+Does nothing but print a message
+*/
 func fsm_onStopButtonPress() {
 	fmt.Println("You pressed the stop button :)")
 }
 
+/*
+	Activates when the timer ends
+	Either the door should close or the elevator is stuck
+
+Input: the old elevator object
+
+Returns: the new elevator object
+*/
 func fsm_onTimerEnd(elevator Elevator) Elevator {
 
 	switch elevator.Behaviour {

@@ -30,7 +30,13 @@ type Elevator struct {
 	ID        int //ID int vs Id string ???
 }
 
-// Checks if the new elevator object is within the bounds of the elevator system
+/*
+	Checks if an elevator has states within the correct bounds
+
+Input: The elevator to be checked
+
+Returns: True if the elevator is valid, false otherwise
+*/
 func elevator_validElevator(elevator Elevator) bool {
 	return elevator.Behaviour >= EB_Idle && elevator.Behaviour <= EB_Moving && //Behaviour in bounds
 		elevator.Direction >= D_Down && elevator.Direction <= D_Up && //Direction in bounds
@@ -39,7 +45,15 @@ func elevator_validElevator(elevator Elevator) bool {
 		!(elevator.Behaviour == EB_Moving && elevator.Direction == D_Stop) //no Behaviour moving without Direction
 }
 
-// Not a pure function as it also activates IO, I think this is fine though
+/*
+	Updates the elevator struct with the new elevator struct
+	Notifies the master if the elevators stuck status has changed
+	Activates the IO of the elevator
+
+Input: The new elevator struct, the old elevator struct, the channel to send messages to the master, the channel to start the timer
+
+Returns: The updated elevator struct
+*/
 func elevator_updateElevator(n_elevator Elevator, elevator Elevator, tx chan<- EventMessage, t_start chan int) Elevator {
 	if elevator_validElevator(n_elevator) {
 		if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed

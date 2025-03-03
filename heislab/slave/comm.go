@@ -13,18 +13,23 @@ import (
 type EventType int
 
 const (
-	Button       EventType = iota //In case of a button press or queue update, both ways
-	FloorArrival                  //In case of a floor arrival, only from slave
-	Stuck                         //In case of a stuck elevator, only from slave
+	Button       EventType = iota //In case of a button press
+	FloorArrival                  //In case of a floor arrival
+	Stuck                         //In case of an update to the elevator's stuck state
 )
 
 type EventMessage struct {
-	MsgID    int
-	Elevator Elevator           //Sends its own elevator struct, always
+	MsgID    int                //Sends a unique ID for the message
+	Elevator Elevator           //Sends its own elevator struct
 	Event    EventType          //Sends the type of event
-	Btn      elevio.ButtonEvent //Sends a button in case of Button or Light
+	Btn      elevio.ButtonEvent //Sends a button in case of a Button event
 }
 
+/*
+	Transmits messages to the master
+
+Input: The channel to receive messages that should be sent, the ID of the elevator
+*/
 func comm_sender(outgoing <-chan EventMessage, ID int) {
 	tx := make(chan EventMessage)
 	ack := make(chan int)
@@ -73,6 +78,11 @@ func comm_sender(outgoing <-chan EventMessage, ID int) {
 	}
 }
 
+/*
+	Receives messages from the master
+
+Input: The channels to send orders and lights to the elevator, the ID of the elevator
+*/
 func comm_receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, lightsRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, ID int) {
 
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)

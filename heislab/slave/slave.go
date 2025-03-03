@@ -9,6 +9,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
+// Initialization and main loop of the slave module
 func Slave(id string) {
 	ID, _ := strconv.Atoi(id)
 	//initialize channels
@@ -34,18 +35,19 @@ func Slave(id string) {
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go comm_sender(tx, ID)                   //Routine for sending messages to master
-	go comm_receiver(ordersRx, lightsRx, ID) //Routine for receiving messages from master
+	go comm_sender(tx, ID)
+	go comm_receiver(ordersRx, lightsRx, ID)
 
 	//initialize elevator
 	var elevator Elevator
 	elevator.ID = ID
 	io_updateLights(elevator.Requests)
-	//initialize elevator
+
 	n_elevator := fsm_onInit(elevator)
 	io_updateLights(n_elevator.Requests)
 	elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
+	//main loop
 	for {
 		fmt.Println("FSM:New Loop")
 		select {
