@@ -11,10 +11,10 @@ import (
 type Placeholder int
 
 func Master(
-	initCalls slave.BackupCalls,
-	masterCallsTx chan<- slave.BackupCalls,
-	masterCallsRx <-chan slave.BackupCalls,
-	backupCallsRx <-chan slave.BackupCalls,
+	initCalls BackupCalls,
+	masterCallsTx chan<- BackupCalls,
+	masterCallsRx <-chan BackupCalls,
+	backupCallsRx <-chan BackupCalls,
 	masterTxEnable chan<- bool,
 	backupsUpdateCh <-chan peers.PeerUpdate,
 ) {
@@ -25,8 +25,8 @@ func Master(
 	// go slaveStateRx()
 	// go slaveCallsRx()
 
-	callsUpdateCh := make(chan slave.UpdateCalls, 2)
-	callsToAssignCh := make(chan slave.AssignCalls)
+	callsUpdateCh := make(chan UpdateCalls, 2)
+	callsToAssignCh := make(chan AssignCalls)
 
 	stateUpdateCh := make(chan slave.Elevator)
 	assignmentsToSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)

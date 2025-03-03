@@ -2,18 +2,7 @@ package slave
 
 import (
 	"fmt"
-
-	"github.com/Kirlu3/Sanntid-G30/heislab/config"
-	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
-
-func validElevator(elevator Elevator) bool {
-	return elevator.Behaviour > -1 && elevator.Behaviour < 3 && //Behaviour in bounds
-		elevator.Direction > -2 && elevator.Direction < 2 && //Direction in bounds
-		elevator.Floor > -1 && elevator.Floor < config.N_FLOORS && //Floor in bounds
-		!elevator.Requests[config.N_FLOORS-1][elevio.BT_HallUp] && !elevator.Requests[0][elevio.BT_HallDown] && //no impossible Requests
-		!(elevator.Behaviour == 2 && elevator.Direction == 0) //no Behaviour moving without Direction
-}
 
 func fsm_onInit(elevator Elevator) Elevator {
 	fmt.Println("onInit")

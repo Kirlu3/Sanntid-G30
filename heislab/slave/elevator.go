@@ -1,6 +1,9 @@
 package slave
 
-import "github.com/Kirlu3/Sanntid-G30/heislab/config"
+import (
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+)
 
 type ElevatorBehaviour int
 
@@ -27,37 +30,23 @@ type Elevator struct {
 	ID        int //ID int vs Id string ???
 }
 
-// type ExpandedElevator struct {
-// 	Elevator Elevator
-// 	CabCalls [N_FLOORS][2]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
-// }
-
-type Calls struct {
-	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+func validElevator(elevator Elevator) bool {
+	return elevator.Behaviour >= EB_Idle && elevator.Behaviour <= EB_Moving && //Behaviour in bounds
+		elevator.Direction >= D_Down && elevator.Direction <= D_Up && //Direction in bounds
+		elevator.Floor > -1 && elevator.Floor < config.N_FLOORS && //Floor in bounds
+		!elevator.Requests[config.N_FLOORS-1][elevio.BT_HallUp] && !elevator.Requests[0][elevio.BT_HallDown] && //no impossible Requests
+		!(elevator.Behaviour == EB_Moving && elevator.Direction == D_Stop) //no Behaviour moving without Direction
 }
 
-type WorldView struct {
-	Elevators      [config.N_ELEVATORS]Elevator //
-	OwnId          string
-	HallCalls      [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
-	AliveElevators [config.N_ELEVATORS]bool
-}
-
-// ok this is kind of stupid but i dont know what to do about it
-
-type BackupCalls struct {
-	Calls Calls
-	Id    int
-}
-
-type AssignCalls struct {
-	Calls          Calls
-	AliveElevators [config.N_ELEVATORS]bool
-}
-
-type UpdateCalls struct {
-	Calls   Calls
-	AddCall bool
+// Not a pure function as it also activates IO, I think this is fine though
+func updateElevator(n_elevator Elevator, elevator Elevator, tx chan<- EventMessage, t_start chan int) Elevator {
+	if validElevator(n_elevator) {
+		if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
+			tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
+		}
+		activateIO(n_elevator, elevator, t_start)
+		return n_elevator
+	} else {
+		panic("Invalid elevator")
+	}
 }

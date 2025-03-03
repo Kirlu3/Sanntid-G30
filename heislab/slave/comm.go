@@ -63,7 +63,7 @@ func sender(outgoing <-chan EventMessage, ID int) {
 				fmt.Println("STx: Starting timer")
 				timerRunning = append(timerRunning, msgID)
 
-				time.AfterFunc(time.Millisecond*1000, func() {
+				time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
 
 					fmt.Println("STx: Ack timeout", timerRunning)
 					timerRunning[slices.Index(timerRunning, msgID)] = timerRunning[len(timerRunning)-1]

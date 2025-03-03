@@ -10,7 +10,6 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/master"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	Slave "github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 func Backup(id string) {
@@ -20,10 +19,10 @@ func Backup(id string) {
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	masterTxEnable := make(chan bool)
 	backupsTxEnable := make(chan bool)
-	masterCallsTx := make(chan Slave.BackupCalls)
-	backupCallsTx := make(chan Slave.BackupCalls)
-	masterCallsRx := make(chan Slave.BackupCalls)
-	backupCallsRx := make(chan Slave.BackupCalls)
+	masterCallsTx := make(chan master.BackupCalls)
+	backupCallsTx := make(chan master.BackupCalls)
+	masterCallsRx := make(chan master.BackupCalls)
+	backupCallsRx := make(chan master.BackupCalls)
 
 	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
 	masterTxEnable <- false // this is dangerous as we risk briefly claiming to be master even though we are not, it seems as long as it takes less than interval it is fine
@@ -41,7 +40,7 @@ func Backup(id string) {
 	fmt.Println("Backup Started: ", id)
 	var backupsUpdate peers.PeerUpdate
 	var masterUpdate peers.PeerUpdate
-	var calls Slave.BackupCalls
+	var calls master.BackupCalls
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		panic("backup received invalid id")

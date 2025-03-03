@@ -63,9 +63,11 @@ func Slave(id string) {
 					tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
 				}
 			}
+
 		case msg := <-lightsRx:
 			fmt.Println("Slave: Updating lights")
 			updateLights(msg)
+
 		case btn := <-drv_buttons: //button press
 			fmt.Println("Slave: Button press")
 			tx <- EventMessage{0, elevator, Button, btn} //send message to master
@@ -107,12 +109,3 @@ func Slave(id string) {
 		}
 	}
 }
-
-/*TODO:
-- Way to check if the elevator is stuck*/
-
-/*Things to consider:
--Test the stuck system, I was tired when I implemented it
--Consider if the elevator should remove assignments from itself or not
--Fix so that lights can clear when the elevator gets an order on the floor it is idle on
-*/
