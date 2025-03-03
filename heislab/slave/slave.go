@@ -53,15 +53,14 @@ func Slave(id string) {
 		fmt.Println("FSM:New Loop")
 		select {
 		case msg := <-ordersRx:
+			fmt.Println("Slave: Updating orders")
+
 			elevator.Requests = msg
 			n_elevator = fsm_onRequests(elevator)
-			if validElevator(n_elevator) {
-				//If an order was cleared, master should get a message (if behavior = door?)
-				activateIO(n_elevator, elevator, t_start)
-				elevator = n_elevator
-				if elevator.Behaviour == EB_DoorOpen {
-					tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
-				}
+			elevator = updateElevator(n_elevator, elevator, tx, t_start)
+
+			if elevator.Behaviour == EB_DoorOpen {
+				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
 			}
 
 		case msg := <-lightsRx:
@@ -71,41 +70,26 @@ func Slave(id string) {
 		case btn := <-drv_buttons: //button press
 			fmt.Println("Slave: Button press")
 			tx <- EventMessage{0, elevator, Button, btn} //send message to master
-			fmt.Println("Slave: Button press sent")
 
 		case floor := <-drv_floors:
-			fmt.Println(floor)
+			fmt.Println("FSM: Floor arrival", floor)
 			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
-			if validElevator(n_elevator) {                   //check if the new elevator is valid
-				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
-					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
-				}
-				activateIO(n_elevator, elevator, t_start) //activate IO
-				fmt.Println("FSM: Floor: Activated IO")
-				elevator = n_elevator                                               //update elevator
-				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
-				fmt.Println("FSM: Completed floor arrival")
-			}
+			elevator = updateElevator(n_elevator, elevator, tx, t_start)
+
+			tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
+
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)
-			if validElevator(n_elevator) {
-				activateIO(n_elevator, elevator, t_start)
-				elevator = n_elevator
-				tx <- EventMessage{0, elevator, Stuck, elevio.ButtonEvent{}}
-			}
+			elevator = updateElevator(n_elevator, elevator, tx, t_start)
 
 		case <-drv_stop:
 			fsm_onStopButtonPress()
 
 		case <-t_end.C:
+			fmt.Println("FSM: Timer end")
+
 			n_elevator = fsm_onTimerEnd(elevator)
-			if validElevator(n_elevator) {
-				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
-					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
-				}
-				activateIO(n_elevator, elevator, t_start)
-				elevator = n_elevator
-			}
+			elevator = updateElevator(n_elevator, elevator, tx, t_start)
 		}
 	}
 }
