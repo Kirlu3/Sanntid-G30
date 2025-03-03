@@ -15,12 +15,13 @@ TODO:
 
 -fix graceful shutdown of master mode
 
--fix init of fsm (set ligths to 0 maybe?)
-
 -how do the slaves handle losing their master?
+    -they don't notice, keep sending and receiving from the same place
 
 -apparently go passes structs and arrays by value so deepcopy is probably not necessary?
 
 -FIX: why do lights cab lights turn off on obstruction? something related to obstruction seems to break the elevator
 
 -FIX: if an elevator has a single call in the direction it is coming from, it failt to clear it
+
+-Consider: with a lot of packet loss so messages take a long time and new assignments are sent before a previous clear was received

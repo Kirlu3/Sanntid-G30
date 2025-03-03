@@ -15,4 +15,5 @@ const (
 	SlaveBasePort              = 40000
 	BackupMessagePeriodSeconds = 1
 	MasterMessagePeriodSeconds = 1
+	ResendPeriodMs             = 1000
 )

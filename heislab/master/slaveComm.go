@@ -13,7 +13,7 @@ import (
 
 // how do I clear orders?
 func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
-	callsUpdateCh chan<- slave.UpdateCalls,
+	callsUpdateCh chan<- UpdateCalls,
 	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 
 	slaveRx := make(chan slave.EventMessage)
@@ -70,8 +70,8 @@ func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
 }
 
 // TODO fix logic for removing hall calls, because it doesnt really make any sense to me
-func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) slave.UpdateCalls {
-	var callsUpdate slave.UpdateCalls
+func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) UpdateCalls {
+	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = false
 
 	callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Elevator.Floor] = true
@@ -83,8 +83,8 @@ func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATO
 	return callsUpdate
 }
 
-func makeAddCallsUpdate(msg slave.EventMessage) slave.UpdateCalls {
-	var callsUpdate slave.UpdateCalls
+func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
+	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = true
 	if msg.Btn.Button == elevio.BT_Cab {
 		callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Btn.Floor] = true

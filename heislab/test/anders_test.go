@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/master"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 func TestNetwork(t *testing.T) {
@@ -169,10 +169,9 @@ func TestCtx(t *testing.T) {
 
 }
 
-
 func TestCompareStructs(t *testing.T) {
-	var calls1 slave.BackupCalls
-	var calls2 slave.BackupCalls
+	var calls1 master.BackupCalls
+	var calls2 master.BackupCalls
 	calls1.Calls.CabCalls[0][0] = false
 	fmt.Println(calls1 == calls2)
 }

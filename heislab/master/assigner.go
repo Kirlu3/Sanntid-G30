@@ -37,11 +37,11 @@ var directionMap = map[slave.ElevatorDirection]string{
 
 func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
-	callsToAssignCh <-chan slave.AssignCalls,
+	callsToAssignCh <-chan AssignCalls,
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
-	var state slave.WorldView // consider waiting for state init
+	var state WorldView // consider waiting for state init
 	for {
 		select {
 		case stateUpdate := <-stateUpdateCh:
@@ -71,7 +71,7 @@ func assignOrders(
 
 }
 
-func assign(state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { // [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { // [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 
 	hraExecutable := ""
 
@@ -99,7 +99,7 @@ func assign(state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.
 	return output
 }
 
-func transformInput(state slave.WorldView) []byte { // transforms from WorldView to json format
+func transformInput(state WorldView) []byte { // transforms from WorldView to json format
 
 	input := HRAInput{
 		HallRequests: state.HallCalls[:],
@@ -127,7 +127,7 @@ func transformInput(state slave.WorldView) []byte { // transforms from WorldView
 	return inputJsonFormat
 }
 
-func transformOutput(outputJsonFormat []byte, state slave.WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
+func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
 	tempOutput := new(map[string][config.N_FLOORS][2]bool)
 

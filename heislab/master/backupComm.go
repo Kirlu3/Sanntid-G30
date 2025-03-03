@@ -7,10 +7,9 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func backupsTx(callsToBackupsCh <-chan slave.Calls, masterCallsTx chan<- slave.BackupCalls, initCalls slave.BackupCalls) {
+func backupsTx(callsToBackupsCh <-chan Calls, masterCallsTx chan<- BackupCalls, initCalls BackupCalls) {
 	calls := initCalls
 	for {
 		select {
@@ -42,19 +41,19 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string, backupsUpdateCh <-chan peers
 
 // when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
 func backupAckRx(
-	callsUpdateCh <-chan slave.UpdateCalls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
-	callsToAssignCh chan<- slave.AssignCalls,
-	initCalls slave.BackupCalls,
-	masterCallsTx chan<- slave.BackupCalls,
-	masterCallsRx <-chan slave.BackupCalls,
-	backupCallsRx <-chan slave.BackupCalls,
+	callsUpdateCh <-chan UpdateCalls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
+	callsToAssignCh chan<- AssignCalls,
+	initCalls BackupCalls,
+	masterCallsTx chan<- BackupCalls,
+	masterCallsRx <-chan BackupCalls,
+	backupCallsRx <-chan BackupCalls,
 	backupsUpdateCh <-chan peers.PeerUpdate,
 ) {
 	Id := initCalls.Id
 
-	otherMasterCallsCh := make(chan slave.BackupCalls)
+	otherMasterCallsCh := make(chan BackupCalls)
 	aliveBackupsCh := make(chan []string)
-	callsToBackupsCh := make(chan slave.Calls)
+	callsToBackupsCh := make(chan Calls)
 
 	// for all channels consider if it is nicer to start them here or in master()
 	go lookForOtherMasters(otherMasterCallsCh, Id, masterCallsRx)
@@ -70,7 +69,7 @@ mainLoop:
 		// fmt.Println("blocking?")
 		select {
 		case callsUpdate := <-callsUpdateCh:
-			if callsUpdate.AddCall == true {
+			if callsUpdate.AddCall {
 				calls = union(calls, callsUpdate.Calls)
 			} else {
 				calls = removeCalls(calls, callsUpdate.Calls)
@@ -131,14 +130,14 @@ mainLoop:
 				AliveElevators[idx] = true
 			}
 			AliveElevators[Id] = true
-			callsToAssignCh <- slave.AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign, do we ever block here?
+			callsToAssignCh <- AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign, do we ever block here?
 			wantReassignment = false
 		}
 	}
 }
 
 // returns true if calls1 is a subset of calls2
-func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
+func isCallsSubset(calls1 Calls, calls2 Calls) bool {
 	for i := range config.N_ELEVATORS {
 		for j := range config.N_FLOORS {
 			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
@@ -157,8 +156,8 @@ func isCallsSubset(calls1 slave.Calls, calls2 slave.Calls) bool {
 }
 
 // returns the union of the calls in calls1 and calls2
-func union(calls1 slave.Calls, calls2 slave.Calls) slave.Calls {
-	var unionCalls slave.Calls
+func union(calls1 Calls, calls2 Calls) Calls {
+	var unionCalls Calls
 	for i := range config.N_ELEVATORS {
 		for j := range config.N_FLOORS {
 			unionCalls.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
@@ -173,7 +172,7 @@ func union(calls1 slave.Calls, calls2 slave.Calls) slave.Calls {
 }
 
 // returns calls \ removedCalls, where \ is set difference
-func removeCalls(calls slave.Calls, removedCalls slave.Calls) slave.Calls {
+func removeCalls(calls Calls, removedCalls Calls) Calls {
 	updatedCalls := calls
 
 	for i := range config.N_ELEVATORS {

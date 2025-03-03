@@ -9,6 +9,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
+// Initialization and main loop of the slave module
 func Slave(id string) {
 	ID, _ := strconv.Atoi(id)
 	//initialize channels
@@ -34,85 +35,60 @@ func Slave(id string) {
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go sender(tx, ID)                   //Routine for sending messages to master
-	go receiver(ordersRx, lightsRx, ID) //Routine for receiving messages from master
+	go comm_sender(tx, ID)
+	go comm_receiver(ordersRx, lightsRx, ID)
 
 	//initialize elevator
 	var elevator Elevator
 	elevator.ID = ID
-	n_elevator := fsm_onInit(elevator)
-	updateLights(n_elevator.Requests)
-	if validElevator(n_elevator) {
-		activateIO(n_elevator, elevator, t_start)
-		elevator = n_elevator
-	}
+	io_updateLights(elevator.Requests)
 
-	//send initial state to master
-	//main loop (too long?)
+	n_elevator := fsm_onInit(elevator)
+	io_updateLights(n_elevator.Requests)
+	elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+	//main loop
 	for {
 		fmt.Println("FSM:New Loop")
 		select {
 		case msg := <-ordersRx:
+			fmt.Println("Slave: Updating orders")
+
 			elevator.Requests = msg
 			n_elevator = fsm_onRequests(elevator)
-			if validElevator(n_elevator) {
-				//If an order was cleared, master should get a message (if behavior = door?)
-				activateIO(n_elevator, elevator, t_start)
-				elevator = n_elevator
-				if elevator.Behaviour == EB_DoorOpen {
-					tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
-				}
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+			if elevator.Behaviour == EB_DoorOpen {
+				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
 			}
+
 		case msg := <-lightsRx:
 			fmt.Println("Slave: Updating lights")
-			updateLights(msg)
+			io_updateLights(msg)
+
 		case btn := <-drv_buttons: //button press
 			fmt.Println("Slave: Button press")
 			tx <- EventMessage{0, elevator, Button, btn} //send message to master
-			fmt.Println("Slave: Button press sent")
 
 		case floor := <-drv_floors:
-			fmt.Println(floor)
+			fmt.Println("FSM: Floor arrival", floor)
 			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
-			if validElevator(n_elevator) {                   //check if the new elevator is valid
-				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
-					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
-				}
-				activateIO(n_elevator, elevator, t_start) //activate IO
-				fmt.Println("FSM: Floor: Activated IO")
-				elevator = n_elevator                                               //update elevator
-				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
-				fmt.Println("FSM: Completed floor arrival")
-			}
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+			tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
+
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)
-			if validElevator(n_elevator) {
-				activateIO(n_elevator, elevator, t_start)
-				elevator = n_elevator
-				tx <- EventMessage{0, elevator, Stuck, elevio.ButtonEvent{}}
-			}
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
 		case <-drv_stop:
 			fsm_onStopButtonPress()
 
 		case <-t_end.C:
+			fmt.Println("FSM: Timer end")
+
 			n_elevator = fsm_onTimerEnd(elevator)
-			if validElevator(n_elevator) {
-				if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
-					tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
-				}
-				activateIO(n_elevator, elevator, t_start)
-				elevator = n_elevator
-			}
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 		}
 	}
 }
-
-/*TODO:
-- Way to check if the elevator is stuck*/
-
-/*Things to consider:
--Test the stuck system, I was tired when I implemented it
--Consider if the elevator should remove assignments from itself or not
--Fix so that lights can clear when the elevator gets an order on the floor it is idle on
-*/
