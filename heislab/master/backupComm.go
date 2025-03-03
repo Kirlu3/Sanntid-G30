@@ -2,6 +2,7 @@ package master
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -101,9 +102,8 @@ mainLoop:
 		select {
 		case otherMasterCalls := <-otherMasterCallsCh:
 			if otherMasterCalls.Id < Id && isCallsSubset(calls, otherMasterCalls.Calls) {
-				// just crash the program
-				panic("find a better way to restart the program")
-
+				fmt.Println("find a better way to restart the program")
+				os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42
 			} else if otherMasterCalls.Id > Id {
 				calls = union(calls, otherMasterCalls.Calls)
 				callsToBackupsCh <- calls
