@@ -107,6 +107,7 @@ mainLoop:
 			} else if otherMasterCalls.Id > Id {
 				calls = union(calls, otherMasterCalls.Calls)
 				callsToBackupsCh <- calls
+				wantReassignment = true
 			} else {
 				fmt.Println("couldn't end master phase: other master has not accepted our calls")
 			}
