@@ -28,6 +28,10 @@ func main() {
 
 	serverAddress := fmt.Sprintf("localhost:%s", *serverPort)
 	elevio.Init(serverAddress, config.N_FLOORS)
+
+	offline := make(chan bool)
+	goOnlineCalls := make(chan [config.N_FLOORS]bool)
+
 	go slave.Slave(*id)
 	go backup.Backup(*id)
 
