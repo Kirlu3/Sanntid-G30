@@ -15,24 +15,22 @@ const timeBetweenFloors = 5
 
 Input: The new elevator object, the old elevator object, and the start time channel
 */
-func io_activateIO(n_elevator Elevator, elevator Elevator, t_start chan int) {
+func io_activateIO(n_elevator Elevator, t_start chan int) {
 
 	elevio.SetFloorIndicator(n_elevator.Floor) //Floor IO
 
-	if n_elevator.Behaviour != elevator.Behaviour {
-		switch n_elevator.Behaviour {
-		case EB_DoorOpen:
-			t_start <- doorOpenDuration
-			elevio.SetDoorOpenLamp(true)
-			elevio.SetMotorDirection(elevio.MD_Stop)
-		case EB_Moving:
-			t_start <- timeBetweenFloors
-			elevio.SetDoorOpenLamp(false)
-			elevio.SetMotorDirection(elevio.MotorDirection(n_elevator.Direction))
-		case EB_Idle:
-			elevio.SetDoorOpenLamp(false)
-			elevio.SetMotorDirection(elevio.MD_Stop)
-		}
+	switch n_elevator.Behaviour {
+	case EB_DoorOpen:
+		t_start <- doorOpenDuration
+		elevio.SetDoorOpenLamp(true)
+		elevio.SetMotorDirection(elevio.MD_Stop)
+	case EB_Moving:
+		t_start <- timeBetweenFloors
+		elevio.SetDoorOpenLamp(false)
+		elevio.SetMotorDirection(elevio.MotorDirection(n_elevator.Direction))
+	case EB_Idle:
+		elevio.SetDoorOpenLamp(false)
+		elevio.SetMotorDirection(elevio.MD_Stop)
 	}
 }
 
