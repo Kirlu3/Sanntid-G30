@@ -44,7 +44,6 @@ func Slave(id string) {
 	io_updateLights(elevator.Requests)
 
 	n_elevator := fsm_onInit(elevator)
-	io_updateLights(n_elevator.Requests)
 	elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
 	//main loop
