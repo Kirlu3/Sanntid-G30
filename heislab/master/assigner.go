@@ -53,6 +53,7 @@ func assignOrders(
 			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
 				assignments := assign(state)
 				assignmentsToSlaveCh <- assignments
+				assignmentsToSlaveReceiver <- assignments
 			}
 			fmt.Println("As:Received new states")
 		default:

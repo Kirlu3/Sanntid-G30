@@ -29,6 +29,7 @@ func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
 			fmt.Println(update)
 			switch update.Event {
 			case slave.Button:
+				stateUpdateCh <- update.Elevator
 				callsUpdateCh <- makeAddCallsUpdate(update)
 			case slave.FloorArrival:
 				stateUpdateCh <- update.Elevator
