@@ -30,7 +30,7 @@ func main() {
 		}
 	}
 restart:
-	cmd := exec.Command("gnome-terminal", "exec", "go", "run", "heislab/main.go", "-id="+id, "-port=5590"+id)
+	cmd := exec.Command("gnome-terminal", "exec", "./restart.sh", id, "5590"+id)
 	cmd.Start()
 	time.Sleep(RestartTimeMs * time.Millisecond)
 	os.Exit(0)
