@@ -39,3 +39,5 @@ can we make the assignments without using the id field? if we do will the id bei
 -update: i think it is just an init problem in the assigner: elev1 isnt moving so doesnt get any state updates so doesnt get to set its id (init is 0) to 1. Therefore it cant get assignments and will never move
 suggested fix: set id fields on init. 
 Also consider: not using the id fields to do assingments
+
+Ensure: That all cab orders from an offline elevator is sent to the corresponding master before it is potentially crashed by encountering another master with higher priority
