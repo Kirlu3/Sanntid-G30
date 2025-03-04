@@ -50,6 +50,9 @@ func comm_sender(outgoing <-chan EventMessage, ID int) {
 			ackTimeout <- msgID
 
 		case ackID := <-ack:
+			if len(needAck) == 0 {
+				break
+			}
 			var ackIndex int
 			for i := range len(needAck) {
 				if needAck[i].MsgID == ackID {
