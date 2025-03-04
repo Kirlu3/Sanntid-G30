@@ -29,9 +29,6 @@ Returns: the new elevator object with updated direction and behaviour
 func fsm_onRequests(elevator Elevator) Elevator {
 	fmt.Println("onRequest")
 	switch elevator.Behaviour {
-	case EB_DoorOpen:
-		elevator = requests_clearAtCurrentFloor(elevator)
-	case EB_Moving:
 	case EB_Idle:
 		direction, behaviour := requests_chooseDirection(elevator)
 		elevator.Direction = direction
@@ -112,6 +109,9 @@ func fsm_onTimerEnd(elevator Elevator) Elevator {
 			direction, behaviour := requests_chooseDirection(elevator)
 			elevator.Direction = direction
 			elevator.Behaviour = behaviour
+			if elevator.Behaviour == EB_DoorOpen {
+				elevator = requests_clearAtCurrentFloor(elevator)
+			}
 		}
 	case EB_Moving:
 		fmt.Println("FSM:onTimerEnd M")

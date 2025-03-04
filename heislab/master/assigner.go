@@ -87,7 +87,6 @@ func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTT
 	default:
 		panic("OS not supported")
 	}
-
 	input := transformInput(state) // transforms input from worldview to HRAInput
 
 	// assign and returns output in json format

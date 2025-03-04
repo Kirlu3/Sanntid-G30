@@ -57,10 +57,6 @@ func Slave(id string) {
 			n_elevator = fsm_onRequests(elevator)
 			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 
-			if elevator.Behaviour == EB_DoorOpen {
-				tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
-			}
-
 		case msg := <-lightsRx:
 			fmt.Println("Slave: Updating lights")
 			io_updateLights(msg)
@@ -71,10 +67,8 @@ func Slave(id string) {
 
 		case floor := <-drv_floors:
 			fmt.Println("FSM: Floor arrival", floor)
-			n_elevator = fsm_onFloorArrival(floor, elevator) //create a new elevator struct
+			n_elevator = fsm_onFloorArrival(floor, elevator)
 			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
-
-			tx <- EventMessage{0, elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
 
 		case obs := <-drv_obstr:
 			n_elevator = fsm_onObstruction(obs, elevator)
@@ -85,7 +79,6 @@ func Slave(id string) {
 
 		case <-t_end.C:
 			fmt.Println("FSM: Timer end")
-
 			n_elevator = fsm_onTimerEnd(elevator)
 			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
 		}
