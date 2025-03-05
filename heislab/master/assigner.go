@@ -99,6 +99,13 @@ func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTT
 	// transforms output from json format to the correct ouputformat
 	output := transformOutput(outputJsonFormat, state)
 
+	// make sure cab calls are not overwritten if elevator is stuck or not alive
+	for i := 0; i < config.N_ELEVATORS; i++ {
+		for j := 0; j < config.N_FLOORS; j++ {
+			output[i][j][2] = state.CabCalls[i][j]
+		}
+	}
+
 	return output
 }
 
