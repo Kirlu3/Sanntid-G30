@@ -3,6 +3,7 @@ package slave
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -38,6 +39,7 @@ func comm_sender(outgoing <-chan EventMessage, ID int) {
 	ackTimeout := make(chan int, 10)
 	var needAck []EventMessage
 	var out EventMessage
+	var mu sync.Mutex //The chance this is necessary is extremely low, but it doesn't hurt
 
 	for {
 		select {
@@ -46,22 +48,27 @@ func comm_sender(outgoing <-chan EventMessage, ID int) {
 			msgID := rand.Int() //gives the message a random ID
 			out.MsgID = msgID
 			tx <- out
+			mu.Lock()
 			needAck = append(needAck, out)
+			mu.Unlock()
 			ackTimeout <- msgID
 
-		case ackID := <-ack:
-			if len(needAck) == 0 {
-				break
-			}
-			var ackIndex int
-			for i := range len(needAck) {
-				if needAck[i].MsgID == ackID {
-					ackIndex = i
-					fmt.Println("STx: Received ack")
+			time.AfterFunc(time.Millisecond*time.Duration(config.ResendTimeoutMs), func() {
+				fmt.Println("STx: Message timeout", msgID)
+				mu.Lock()
+				oldLen := len(needAck)
+				needAck = removeAck(needAck, msgID)
+				if len(needAck) == oldLen {
+					fmt.Println("STx: Ack previously received")
 				}
-			}
-			needAck[ackIndex] = needAck[len(needAck)-1] // this line gave me panic: runtime error: index out of range [-1], how is that possible? ahh length was 0 i assume
-			needAck = needAck[:len(needAck)-1]
+				mu.Unlock()
+			})
+
+		case ackID := <-ack:
+			fmt.Println("STx: Received Ack", ackID)
+			mu.Lock()
+			needAck = removeAck(needAck, ackID)
+			mu.Unlock()
 
 		case msgID := <-ackTimeout:
 			// fmt.Println("STx: Waiting for ack")
@@ -69,16 +76,34 @@ func comm_sender(outgoing <-chan EventMessage, ID int) {
 			//Potential for race condition on needAck
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
 				fmt.Println("STx: Ack timeout")
+				mu.Lock()
 				for i := range len(needAck) {
 					if needAck[i].MsgID == msgID {
+						fmt.Println("STx: Resending message", msgID)
 						tx <- needAck[i]
 						ackTimeout <- msgID
 						break
 					}
 				}
+				mu.Unlock()
 			})
 		}
 	}
+}
+
+func removeAck(needAck []EventMessage, msgID int) []EventMessage {
+	ackIndex := -1
+	for i := range len(needAck) {
+		if needAck[i].MsgID == msgID {
+			ackIndex = i
+		}
+	}
+	if len(needAck) == 0 || ackIndex == -1 {
+		return needAck
+	}
+	needAck[ackIndex] = needAck[len(needAck)-1]
+	needAck = needAck[:len(needAck)-1]
+	return needAck
 }
 
 /*
