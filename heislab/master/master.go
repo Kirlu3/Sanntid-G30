@@ -9,7 +9,12 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master(initCalls BackupCalls, online chan<- bool, goOnlineCalls <-chan [config.N_FLOORS][config.N_BUTTONS]bool) {
+func Master(
+	initCalls BackupCalls, online chan<- bool, 
+	goOnlineCalls <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterOfflineCh <-chan slave.EventMessage,
+) {
 	fmt.Println(initCalls.Id, "entered master mode")
 
 	callsUpdateCh := make(chan UpdateCalls, 2)
@@ -26,17 +31,8 @@ func Master(initCalls BackupCalls, online chan<- bool, goOnlineCalls <-chan [con
 	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls)
 	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh, assignmentsToSlaveReceiverCh)
 
-	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiverCh)
-	go sendMessagesToSlaves(assignmentsToSlaveCh)
-
-	// monitor our own masterUpdatePort
-	// if we don't find ourselves: we are offline
-	// tell slave
-
-	// masterUpdateCh := make(chan peers.PeerUpdate)
-	// go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
-
-	online <- false
+	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiverCh, slaveToMasterOfflineCh, initCalls.Id)
+	go sendMessagesToSlaves(assignmentsToSlaveCh, masterToSlaveOfflineCh)
 
 	// the program is crashed and restarted when it should go back to backup mode
 	select {}

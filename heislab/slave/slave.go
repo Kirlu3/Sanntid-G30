@@ -10,7 +10,10 @@ import (
 )
 
 // Initialization and main loop of the slave module
-func Slave(id string, online <-chan bool, goOnlineCalls chan<- [config.N_FLOORS][config.N_BUTTONS]bool) {
+func Slave(id string, online <-chan bool, goOnlineCalls chan<- [config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterOfflineCh chan<- EventMessage,
+) {
 	ID, _ := strconv.Atoi(id)
 	//initialize channels
 	drv_buttons := make(chan elevio.ButtonEvent)
@@ -35,8 +38,8 @@ func Slave(id string, online <-chan bool, goOnlineCalls chan<- [config.N_FLOORS]
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go comm_sender(tx, ID)
-	go comm_receiver(ordersRx, lightsRx, ID)
+	go comm_sender(tx, slaveToMasterOfflineCh, ID)
+	go comm_receiver(ordersRx, lightsRx, masterToSlaveOfflineCh, ID)
 
 	//initialize elevator
 	var elevator Elevator
