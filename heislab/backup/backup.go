@@ -12,7 +12,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
-func Backup(id string) {
+func Backup(id string, online chan<- bool, goOnlineCalls <-chan [config.N_FLOORS][config.N_BUTTONS]bool) {
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	backupsTxEnable := make(chan bool)
@@ -73,7 +73,7 @@ func Backup(id string) {
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls)
+			master.Master(calls, online, goOnlineCalls)
 			panic("the master phase should never return")
 		}
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master(initCalls BackupCalls) {
+func Master(initCalls BackupCalls, online chan<- bool, goOnlineCalls <-chan [config.N_FLOORS][config.N_BUTTONS]bool) {
 	fmt.Println(initCalls.Id, "entered master mode")
 
 	callsUpdateCh := make(chan UpdateCalls, 2)
@@ -29,6 +29,15 @@ func Master(initCalls BackupCalls) {
 	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiverCh)
 	go sendMessagesToSlaves(assignmentsToSlaveCh)
 
-	// the program crashes and restarts when it should go to backup mode
+	// monitor our own masterUpdatePort
+	// if we don't find ourselves: we are offline
+	// tell slave
+
+	// masterUpdateCh := make(chan peers.PeerUpdate)
+	// go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
+
+	online <- false
+
+	// the program is crashed and restarted when it should go back to backup mode
 	select {}
 }
