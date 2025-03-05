@@ -19,3 +19,5 @@ TODO:
 Ensure: That all cab orders from an offline elevator is sent to the corresponding master before it is potentially crashed by encountering another master with higher priority
 
 -Implement single elevator mode for when network connection is missing
+
+-Case of assignment not possible needs to be addressed, refuse assignment? but then the call is stored but no action is taken, which could lead to weird behaviour (we have the call in our system, but no lights, when is this update implemented) assign everything to the master? the exact assignments might not matter since no calls will actually be taken, but try to reduce inconsistency/ information loss
