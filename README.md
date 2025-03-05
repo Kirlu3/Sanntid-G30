@@ -1,9 +1,3 @@
-# Sanntid-G30
-Sanntidsprosjekt gruppe 30 V25
-
-Project is run by calling ./restart.sh elevator_id elevator_server_port
-
-
 # System overviev:
 
 ## Master 
