@@ -47,6 +47,7 @@ func comm_sender(outgoing <-chan EventMessage, slaveToMasterOfflineCh chan<- Eve
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 	var masterUpdate peers.PeerUpdate
 
+mainLoop:
 	for {
 		select {
 		case out = <-outgoing:
@@ -54,9 +55,12 @@ func comm_sender(outgoing <-chan EventMessage, slaveToMasterOfflineCh chan<- Eve
 			case masterUpdate = <-masterUpdateCh:
 			default:
 			}
-			if len(masterUpdate.Peers) > 0 && masterUpdate.Peers[0] == strconv.Itoa(ID) {
-				slaveToMasterOfflineCh <- out
-				break
+			if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(ID) {
+				select {
+				case slaveToMasterOfflineCh <- out:
+					continue mainLoop
+				case <-time.After(time.Millisecond * 100):
+				}
 			}
 
 			fmt.Println("STx: Sending Message")
