@@ -32,7 +32,7 @@ func main() {
 	offline := make(chan bool)
 	goOnlineCalls := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
 
-	go slave.Slave(*id)
+	go slave.Slave(*id, offline, goOnlineCalls)
 	go backup.Backup(*id)
 
 	// Watchdog
