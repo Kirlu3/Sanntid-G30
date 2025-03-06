@@ -1,4 +1,5 @@
-## Slave module:
+Slave module
+===================
 
 Consists of the following files:
 - elevator.go

@@ -35,14 +35,14 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
-/* 
-stateUpdateCh receives updates about the state of the elevators 
+/*
+stateUpdateCh receives updates about the state of the elevators
 
 callsToAssignCh receives the calls that should be assigned and a list over the alive elevators
 
-assignemtsToSlaveCh sends the assigned orders to the function that handles sending them to the slaves 
+assignmentsToSlaveCh sends the assigned orders to the function that handles sending them to the slaves
 
-assignemntsToSlaveReceiver sends the assigned calls to the receiver that receives messages from the slaves, and is is used to clear orders
+assignmentsToSlaveReceiver sends the assigned calls to the receiver that receives messages from the slaves, and is is used to clear orders
 */
 func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
@@ -50,9 +50,9 @@ func assignOrders(
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
-	var state WorldView 
+	var state WorldView
 	for i := range config.N_ELEVATORS {
-		state.Elevators[i].ID = i 
+		state.Elevators[i].ID = i
 	}
 	for {
 		select {
@@ -86,10 +86,10 @@ func assignOrders(
 
 }
 
-/* 
+/*
 Input: the masters WorldView
 
-Output: an array containing what calls goes to what elevators
+Output: an array containing which calls go to which elevator
 */
 func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	hraExecutable := ""
@@ -124,10 +124,10 @@ func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTT
 	return output
 }
 
-/* 
+/*
 Input: the masters worldview
 
-Output: JSON encoding of the masters worldview minus stuck and non-alive elevators
+Output: JSON encoding of the masters worldview removing stuck and non-alive elevators
 */
 func transformInput(state WorldView) []byte { // transforms from WorldView to json format
 
@@ -137,7 +137,7 @@ func transformInput(state WorldView) []byte { // transforms from WorldView to js
 	}
 
 	// adding all non-stuck and alive elevators to the state map
-	for i := range(len(state.Elevators)) {
+	for i := range len(state.Elevators) {
 		if !state.Elevators[i].Stuck && state.AliveElevators[i] {
 			input.States[strconv.Itoa(state.Elevators[i].ID)] = HRAElevState{
 				Floor:       state.Elevators[i].Floor,
@@ -157,7 +157,7 @@ func transformInput(state WorldView) []byte { // transforms from WorldView to js
 	return inputJsonFormat
 }
 
-/* 
+/*
 Input: JOSN encoding of the assigned orders
 
 Output: an array of the assigned orders
