@@ -10,9 +10,14 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/master"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
+	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Backup(id string) {
+func Backup(
+	id string, 
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterOfflineCh <-chan slave.EventMessage,
+) {
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	backupsTxEnable := make(chan bool)
@@ -73,7 +78,7 @@ func Backup(id string) {
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls)
+			master.Master(calls, masterToSlaveOfflineCh, slaveToMasterOfflineCh)
 			panic("the master phase should never return")
 		}
 	}

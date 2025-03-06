@@ -12,13 +12,20 @@ import (
 )
 
 // how do I clear orders?
-func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
+func receiveMessagesFromSlaves(
+	stateUpdateCh chan<- slave.Elevator,
 	callsUpdateCh chan<- UpdateCalls,
-	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterOfflineCh <-chan slave.EventMessage,
+) {
 
 	slaveRx := make(chan slave.EventMessage)
 	go receiveUniqueMessages(slaveRx)
-
+	go func() {
+		for msg := range slaveToMasterOfflineCh {
+			slaveRx <- msg
+		}
+	}()
 	var assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
 		select {
@@ -93,7 +100,10 @@ func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
 	return callsUpdate
 }
 
-func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+func sendMessagesToSlaves(
+	toSlaveCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+) {
 	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Transmitter(config.SlaveBasePort-1, tx)
 
@@ -107,6 +117,7 @@ func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][c
 			fmt.Println("ST: New orders sent")
 			fmt.Println(msg)
 			tx <- msg
+			masterToSlaveOfflineCh <- msg
 		default:
 			tx <- msg
 		}

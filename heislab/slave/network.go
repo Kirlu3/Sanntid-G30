@@ -3,12 +3,14 @@ package slave
 import (
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
 type EventType int
@@ -32,7 +34,7 @@ type EventMessage struct {
 Input: The channel to receive messages that should be sent, the ID of the elevator as well as the channel of button presses
 Reasoning: The elevator sends all button presses to the master, and as a button event doesn't need to go by the FSM
 */
-func network_sender(outgoing chan EventMessage, drv_buttons <-chan elevio.ButtonEvent, ID int) {
+func network_sender(outgoing chan EventMessage, drv_buttons <-chan elevio.ButtonEvent, slaveToMasterOfflineCh chan<- EventMessage, ID int) {
 	tx := make(chan EventMessage)
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort, tx)
@@ -42,6 +44,11 @@ func network_sender(outgoing chan EventMessage, drv_buttons <-chan elevio.Button
 	var out EventMessage
 	var mu sync.Mutex //The chance this is necessary is extremely low, but it doesn't hurt
 
+	masterUpdateCh := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
+	var masterUpdate peers.PeerUpdate
+
+mainLoop:
 	for {
 		select {
 		case btn := <-drv_buttons:
@@ -50,6 +57,18 @@ func network_sender(outgoing chan EventMessage, drv_buttons <-chan elevio.Button
 			elevator.ID = ID
 			outgoing <- EventMessage{0, elevator, Button, btn}
 		case out = <-outgoing:
+			select {
+			case masterUpdate = <-masterUpdateCh:
+			default:
+			}
+			if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(ID) {
+				select {
+				case slaveToMasterOfflineCh <- out:
+					continue mainLoop
+				case <-time.After(time.Millisecond * 100):
+				}
+			}
+
 			fmt.Println("STx: Sending Message")
 			msgID := rand.Int() //gives the message a random ID
 			out.MsgID = msgID
@@ -122,12 +141,22 @@ func network_removeAck(needAck []EventMessage, msgID int) []EventMessage {
 
 Input: The channels to send orders and lights to the elevator, the ID of the elevator
 */
-func network_receiver(ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool, ID int) {
-
+func network_receiver(
+	ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	ID int,
+) {
 	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Receiver(config.SlaveBasePort-1, rx)
 
+	go func() {
+		for msg := range masterToSlaveOfflineCh {
+			rx <- msg
+		}
+	}()
+
 	var prevMsg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+
 	for msg := range rx {
 		if msg != prevMsg {
 			fmt.Println("SRx: Received New Message")
