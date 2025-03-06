@@ -17,9 +17,7 @@ func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
 	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 
 	slaveRx := make(chan slave.EventMessage)
-	for slaveID := range config.N_ELEVATORS {
-		go receiveMessageFromSlave(slaveRx, slaveID)
-	}
+	go receiveUniqueMessages(slaveRx)
 
 	var assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
@@ -45,14 +43,14 @@ func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
 	}
 }
 
-func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
+func receiveUniqueMessages(slaveRx chan<- slave.EventMessage) {
 
-	//rx channel for receiving from each slave
+	//rx channel for receiving messages
 	rx := make(chan slave.EventMessage)
-	go bcast.Receiver(config.SlaveBasePort+slaveID, rx)
-	//ack channel to send an acknowledgment to each slave
+	go bcast.Receiver(config.SlaveBasePort, rx)
+	//ack channel to send an acknowledgments
 	ack := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort+slaveID+10, ack)
+	go bcast.Transmitter(config.SlaveBasePort+10, ack)
 
 	var msgID []int
 	for msg := range rx {
@@ -61,8 +59,8 @@ func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
 		fmt.Println("ST: Sent Ack", msg.MsgID)
 		if !slices.Contains(msgID, msg.MsgID) {
 			msgID = append(msgID, msg.MsgID)
-			// if we've stored too many IDs, remove the oldest one (I assume I will never need to hold more than 10, likely less)
-			if len(msgID) > 10 {
+			// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+			if len(msgID) > 20 {
 				msgID = msgID[1:]
 			}
 			slaveRx <- msg

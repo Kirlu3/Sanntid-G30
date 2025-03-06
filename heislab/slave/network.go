@@ -35,8 +35,8 @@ Reasoning: The elevator sends all button presses to the master, and as a button 
 func network_sender(outgoing chan EventMessage, drv_buttons <-chan elevio.ButtonEvent, ID int) {
 	tx := make(chan EventMessage)
 	ack := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort+ID, tx)
-	go bcast.Receiver(config.SlaveBasePort+10+ID, ack)
+	go bcast.Transmitter(config.SlaveBasePort, tx)
+	go bcast.Receiver(config.SlaveBasePort+10, ack)
 	ackTimeout := make(chan int, 10)
 	var needAck []EventMessage
 	var out EventMessage
@@ -46,7 +46,9 @@ func network_sender(outgoing chan EventMessage, drv_buttons <-chan elevio.Button
 		select {
 		case btn := <-drv_buttons:
 			fmt.Println("STx: Button Pressed")
-			outgoing <- EventMessage{0, Elevator{}, Button, btn}
+			var elevator Elevator
+			elevator.ID = ID
+			outgoing <- EventMessage{0, elevator, Button, btn}
 		case out = <-outgoing:
 			fmt.Println("STx: Sending Message")
 			msgID := rand.Int() //gives the message a random ID

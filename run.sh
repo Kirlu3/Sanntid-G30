@@ -4,8 +4,6 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-# This builds and runs the program, in addition to restarting it if it exits with code 42
-# In cases where we wish to restart the program, we exit with code 42
 while true; do
     go build -o main heislab/main.go
     ./main -id="$1" -port="$2"
