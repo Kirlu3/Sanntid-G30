@@ -56,7 +56,7 @@ func receiveMessagesFromSlaves(
 /*
 receiveMessageFromSlave listens to the SlaveBasePort+slaveID (from config) for messages from slaves and transmitts the message IDs to the SlaveBasePort+10+slaveID (from config).
 */
-func receiveUniqueMessages(slaveRx chan<- slave.EventMessage, slaveID int) {
+func receiveUniqueMessages(slaveRx chan<- slave.EventMessage) {
 
 	//rx channel for receiving messages
 	rx := make(chan slave.EventMessage)
@@ -122,7 +122,8 @@ func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
 /*
 Handles transmitting the assignments received on the toSlaveCh channel to the slaves on the SlaveBasePort-1 port.
 */
-func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Transmitter(config.SlaveBasePort-1, tx)
 

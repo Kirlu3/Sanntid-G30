@@ -12,10 +12,8 @@ type Calls struct {
 
 type WorldView struct {
 	Elevators      [config.N_ELEVATORS]slave.Elevator
-	Elevators      [config.N_ELEVATORS]slave.Elevator
 	OwnId          string
 	HallCalls      [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool
 	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool
 	AliveElevators [config.N_ELEVATORS]bool
 }
