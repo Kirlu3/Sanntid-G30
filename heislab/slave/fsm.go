@@ -2,7 +2,56 @@ package slave
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 )
+
+/*
+	The main finite state machine of the elevator.
+	Explained in more detail in the README
+
+Input: the elevator ID and all relevant channels
+*/
+func fsm_fsm(ID int, tx chan<- EventMessage, ordersRx <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
+	drv_floors <-chan int, drv_obstr <-chan bool, drv_stop <-chan bool, t_start chan int, t_end *time.Timer) {
+	//initialize elevator
+	var elevator Elevator
+	elevator.ID = ID
+	io_updateLights(elevator.Requests)
+
+	n_elevator := fsm_onInit(elevator)
+	elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+	for {
+		fmt.Println("FSM:New Loop")
+		select {
+		case newRequests := <-ordersRx:
+			fmt.Println("Slave: Updating orders")
+
+			elevator.Requests = newRequests
+			n_elevator = fsm_onRequests(elevator)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+		case floor := <-drv_floors:
+			fmt.Println("FSM: Floor arrival", floor)
+			n_elevator = fsm_onFloorArrival(floor, elevator)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+		case obs := <-drv_obstr:
+			n_elevator = fsm_onObstruction(obs, elevator)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+
+		case <-drv_stop:
+			fsm_onStopButtonPress()
+
+		case <-t_end.C:
+			fmt.Println("FSM: Timer end")
+			n_elevator = fsm_onTimerEnd(elevator)
+			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+		}
+	}
+}
 
 /*
 	Activates when the elevator is initialized
