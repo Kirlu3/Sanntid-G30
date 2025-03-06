@@ -9,7 +9,11 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master(initCalls BackupCalls) {
+func Master(
+	initCalls BackupCalls,
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterOfflineCh <-chan slave.EventMessage,
+) {
 	fmt.Println(initCalls.Id, "entered master mode")
 
 	callsUpdateCh := make(chan UpdateCalls, 2)
@@ -26,9 +30,9 @@ func Master(initCalls BackupCalls) {
 	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls)
 	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh, assignmentsToSlaveReceiverCh)
 
-	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiverCh)
-	go sendMessagesToSlaves(assignmentsToSlaveCh)
+	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiverCh, slaveToMasterOfflineCh)
+	go sendMessagesToSlaves(assignmentsToSlaveCh, masterToSlaveOfflineCh)
 
-	// the program crashes and restarts when it should go to backup mode
+	// the program is crashed and restarted when it should go back to backup mode
 	select {}
 }

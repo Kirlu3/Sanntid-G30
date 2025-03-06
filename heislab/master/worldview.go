@@ -7,14 +7,14 @@ import (
 
 type Calls struct {
 	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool 
 }
 
 type WorldView struct {
-	Elevators      [config.N_ELEVATORS]slave.Elevator //
+	Elevators      [config.N_ELEVATORS]slave.Elevator
 	OwnId          string
 	HallCalls      [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool // the master doesnt care about the Requests attribute of the Elevator but needs a way to store cab and hall calls
+	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool
 	AliveElevators [config.N_ELEVATORS]bool
 }
 

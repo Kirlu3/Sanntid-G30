@@ -12,15 +12,20 @@ import (
 )
 
 // how do I clear orders?
-func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
+func receiveMessagesFromSlaves(
+	stateUpdateCh chan<- slave.Elevator,
 	callsUpdateCh chan<- UpdateCalls,
-	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterOfflineCh <-chan slave.EventMessage,
+) {
 
 	slaveRx := make(chan slave.EventMessage)
-	for slaveID := range config.N_ELEVATORS {
-		go receiveMessageFromSlave(slaveRx, slaveID)
-	}
-
+	go receiveUniqueMessages(slaveRx)
+	go func() {
+		for msg := range slaveToMasterOfflineCh {
+			slaveRx <- msg
+		}
+	}()
 	var assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
 		select {
@@ -29,7 +34,7 @@ func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
 			fmt.Println(update)
 			switch update.Event {
 			case slave.Button:
-				stateUpdateCh <- update.Elevator
+				//stateUpdateCh <- update.Elevator //can no longer do this with how button presses are set up
 				callsUpdateCh <- makeAddCallsUpdate(update)
 			case slave.FloorArrival:
 				stateUpdateCh <- update.Elevator
@@ -45,14 +50,14 @@ func receiveMessagesFromSlaves(stateUpdateCh chan<- slave.Elevator,
 	}
 }
 
-func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
+func receiveUniqueMessages(slaveRx chan<- slave.EventMessage) {
 
-	//rx channel for receiving from each slave
+	//rx channel for receiving messages
 	rx := make(chan slave.EventMessage)
-	go bcast.Receiver(config.SlaveBasePort+slaveID, rx)
-	//ack channel to send an acknowledgment to each slave
+	go bcast.Receiver(config.SlaveBasePort, rx)
+	//ack channel to send an acknowledgments
 	ack := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort+slaveID+10, ack)
+	go bcast.Transmitter(config.SlaveBasePort+10, ack)
 
 	var msgID []int
 	for msg := range rx {
@@ -61,8 +66,8 @@ func receiveMessageFromSlave(slaveRx chan<- slave.EventMessage, slaveID int) {
 		fmt.Println("ST: Sent Ack", msg.MsgID)
 		if !slices.Contains(msgID, msg.MsgID) {
 			msgID = append(msgID, msg.MsgID)
-			// if we've stored too many IDs, remove the oldest one (I assume I will never need to hold more than 10, likely less)
-			if len(msgID) > 10 {
+			// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+			if len(msgID) > 20 {
 				msgID = msgID[1:]
 			}
 			slaveRx <- msg
@@ -95,7 +100,10 @@ func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
 	return callsUpdate
 }
 
-func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
+func sendMessagesToSlaves(
+	toSlaveCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+) {
 	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Transmitter(config.SlaveBasePort-1, tx)
 
@@ -109,6 +117,7 @@ func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][c
 			fmt.Println("ST: New orders sent")
 			fmt.Println(msg)
 			tx <- msg
+			masterToSlaveOfflineCh <- msg
 		default:
 			tx <- msg
 		}
