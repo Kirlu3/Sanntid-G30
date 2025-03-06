@@ -13,8 +13,15 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
+/*
+	The entire backup system run in one goroutine.
+
+The routine listens to the master's UDP broadcasts and responds with the updated worldview.
+If the backup loses connection with the master, it will transition to the master phase with its current worldview.
+A large portion of the backup code are pretty prints of updates to peer lists.
+*/
 func Backup(
-	id string, 
+	id string,
 	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	slaveToMasterOfflineCh <-chan slave.EventMessage,
 ) {
