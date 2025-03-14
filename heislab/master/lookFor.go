@@ -10,8 +10,8 @@ import (
 /*
 The routine looks for other masters. If there is another master, the calls of the other master is sent over the otherMasterCallsCh channel. 
 */
-func lookForOtherMasters(otherMasterCallsCh chan<- BackupCalls, ownId int) {
-	masterCallsRx := make(chan BackupCalls)
+func lookForOtherMasters(otherMasterCallsCh chan<- struct {Calls Calls; Id int}, ownId int) {
+	masterCallsRx := make(chan struct{Calls Calls; Id int})
 	go bcast.Receiver(config.MasterCallsPort, masterCallsRx)
 	for otherMasterCalls := range masterCallsRx {
 		if otherMasterCalls.Id != ownId {
