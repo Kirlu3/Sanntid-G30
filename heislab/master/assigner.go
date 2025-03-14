@@ -35,6 +35,15 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
+/*
+stateUpdateCh receives updates about the state of the elevators
+
+callsToAssignCh receives the calls that should be assigned and a list over the alive elevators
+
+assignmentsToSlaveCh sends the assigned orders to the function that handles sending them to the slaves
+
+assignmentsToSlaveReceiver sends the assigned calls to the receiver that receives messages from the slaves, and is is used to clear orders
+*/
 func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
 	callsToAssignCh <-chan AssignCalls,
@@ -61,6 +70,7 @@ func assignOrders(
 				assignmentsToSlaveReceiver <- assignments
 			}
 			fmt.Println("As:Received new states")
+
 		default:
 			select {
 			case calls = <-callsToAssignCh:
@@ -78,8 +88,13 @@ func assignOrders(
 
 }
 
-func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { 
 
+/*
+Input: the masters WorldView
+
+Output: an array containing which calls go to which elevator
+*/
+func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { 
 	hraExecutable := ""
 
 	switch runtime.GOOS {
@@ -117,6 +132,12 @@ func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCa
 	return output
 }
 
+
+/*
+Input: the masters worldview
+
+Output: JSON encoding of the masters worldview removing stuck and non-alive elevators
+*/
 func transformInput(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) []byte {
 
 	input := HRAInput{
@@ -145,6 +166,12 @@ func transformInput(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign 
 	return inputJsonFormat
 }
 
+
+/*
+Input: JOSN encoding of the assigned orders
+
+Output: an array of the assigned orders
+*/
 func transformOutput(outputJsonFormat []byte, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
 	tempOutput := new(map[string][config.N_FLOORS][2]bool)

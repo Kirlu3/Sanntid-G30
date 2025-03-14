@@ -6,7 +6,7 @@ import (
 
 type Calls struct {
 	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool 
+	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool
 }
 
 type BackupCalls struct {
