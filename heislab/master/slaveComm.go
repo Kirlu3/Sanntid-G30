@@ -17,7 +17,10 @@ Acknowledges the button press
 Sends an update to the assigner for the button press
 */
 func receiveButtonPress(
-	callsUpdateCh chan<- UpdateCalls,
+	callsUpdateCh chan<- struct {
+		Calls   Calls
+		AddCall bool
+	},
 	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
 ) {
 	//make a channel to receive buttons
@@ -27,23 +30,23 @@ func receiveButtonPress(
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort+10, ack)
 
-	go func() {
-		for newBtn := range slaveToMasterOfflineButton {
-			callsUpdateCh <- makeAddCallsUpdate(newBtn)
-		}
-	}()
-
 	var msgID []int
-	for newBtn := range rx {
-		println("ST: Received message")
-		ack <- newBtn.MsgID
-		fmt.Println("ST: Sent Ack", newBtn.MsgID)
-		if !slices.Contains(msgID, newBtn.MsgID) {
-			msgID = append(msgID, newBtn.MsgID)
-			// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
-			if len(msgID) > 20 {
-				msgID = msgID[1:]
+	for {
+		select {
+		case newBtn := <-rx:
+			println("ST: Received button press")
+			ack <- newBtn.MsgID
+			fmt.Println("ST: Sent Ack", newBtn.MsgID)
+			if !slices.Contains(msgID, newBtn.MsgID) {
+				msgID = append(msgID, newBtn.MsgID)
+				// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+				if len(msgID) > 20 {
+					msgID = msgID[1:]
+				}
+				callsUpdateCh <- makeAddCallsUpdate(newBtn)
 			}
+		case newBtn := <-slaveToMasterOfflineButton:
+			println("ST: Received button press offline")
 			callsUpdateCh <- makeAddCallsUpdate(newBtn)
 		}
 	}
@@ -53,18 +56,31 @@ func receiveButtonPress(
 Listens to UDP broadcasts from the slaves
 */
 func receiveElevatorUpdate(
-	elevatorUpdateCh chan<- [config.N_ELEVATORS]slave.Elevator,
-	callsUpdateCh chan<- UpdateCalls,
+	elevatorUpdateCh chan<- slave.Elevator,
+	callsUpdateCh chan<- struct {
+		Calls   Calls
+		AddCall bool
+	},
 	slaveToMasterOfflineElevator <-chan slave.Elevator,
 
 ) {
 	rx := make(chan slave.Elevator)
 	elevators := [config.N_ELEVATORS]slave.Elevator{}
 	go bcast.Receiver(config.SlaveBasePort+5, rx)
-	for elevatorUpdate := range rx {
-		if elevators[elevatorUpdate.ID] != elevatorUpdate {
+
+	for {
+		select {
+		case elevatorUpdate := <-rx:
+			if elevators[elevatorUpdate.ID] != elevatorUpdate {
+				elevators[elevatorUpdate.ID] = elevatorUpdate
+				elevatorUpdateCh <- elevatorUpdate
+				if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
+					callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
+				}
+			}
+		case elevatorUpdate := <-slaveToMasterOfflineElevator:
 			elevators[elevatorUpdate.ID] = elevatorUpdate
-			elevatorUpdateCh <- elevators
+			elevatorUpdateCh <- elevatorUpdate
 			if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
 				callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
 			}

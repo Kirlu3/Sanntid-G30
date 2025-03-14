@@ -46,11 +46,13 @@ assignmentsToSlaveReceiver sends the assigned calls to the receiver that receive
 */
 func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
-	callsToAssignCh <-chan struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool},
+	callsToAssignCh <-chan struct {
+		Calls          Calls
+		AliveElevators [config.N_ELEVATORS]bool
+	},
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
-	
+
 	elevators := [config.N_ELEVATORS]slave.Elevator{} // consider waiting for state init
 	calls := AssignCalls{}
 
@@ -67,19 +69,17 @@ func assignOrders(
 				calls.AliveElevators[stateUpdate.ID] = !stateUpdate.Stuck // acts as if the elevator is dead if it is stuck
 				assignments := assign(elevators, calls)
 				assignmentsToSlaveCh <- assignments
-				assignmentsToSlaveReceiver <- assignments
 			}
 			fmt.Println("As:Received new states")
 
 		default:
 			select {
 			case calls = <-callsToAssignCh:
-				
+
 				fmt.Printf("As: state: %v\n", elevators)
 				assignments := assign(elevators, calls)
 				//fmt.Printf("assigned:%v\n", assignments)
 				assignmentsToSlaveCh <- assignments
-				assignmentsToSlaveReceiver <- assignments
 				fmt.Println("As:Succeded")
 			default:
 			}
@@ -88,13 +88,12 @@ func assignOrders(
 
 }
 
-
 /*
 Input: the masters WorldView
 
 Output: an array containing which calls go to which elevator
 */
-func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { 
+func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	hraExecutable := ""
 
 	switch runtime.GOOS {
@@ -105,7 +104,7 @@ func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCa
 	default:
 		panic("OS not supported")
 	}
-	
+
 	input := transformInput(elevators, callsToAssign) // transforms input from worldview to HRAInput
 
 	fmt.Println("Input to assigner: ", string(input))
@@ -114,15 +113,15 @@ func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCa
 	outputJsonFormat, errAssign := exec.Command("heislab/Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
-		fmt.Println("Error occured when assigning: ", errAssign,", output: ", string(outputJsonFormat))
+		fmt.Println("Error occured when assigning: ", errAssign, ", output: ", string(outputJsonFormat))
 	}
 
 	// transforms output from json format to the correct ouputformat
 	output := transformOutput(outputJsonFormat, callsToAssign)
 
 	// make sure cab calls are not overwritten if elevator is stuck or not alive
-	for elev := range(config.N_ELEVATORS) {
-		for floor := range(config.N_FLOORS){
+	for elev := range config.N_ELEVATORS {
+		for floor := range config.N_FLOORS {
 			output[elev][floor][2] = callsToAssign.Calls.CabCalls[elev][floor]
 		}
 	}
@@ -131,7 +130,6 @@ func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCa
 
 	return output
 }
-
 
 /*
 Input: the masters worldview
@@ -146,7 +144,7 @@ func transformInput(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign 
 	}
 
 	// adding all alive elevators to the input map
-	for i := range(config.N_ELEVATORS) {
+	for i := range config.N_ELEVATORS {
 		if callsToAssign.AliveElevators[i] {
 			input.States[strconv.Itoa(elevators[i].ID)] = HRAElevState{
 				Floor:       elevators[i].Floor,
@@ -165,7 +163,6 @@ func transformInput(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign 
 
 	return inputJsonFormat
 }
-
 
 /*
 Input: JOSN encoding of the assigned orders
@@ -202,4 +199,4 @@ func transformOutput(outputJsonFormat []byte, callsToAssign AssignCalls) [config
 	return output
 }
 
-// TODO sjekke om det finnes elevators i live og som ikke er stuck - hvis ikke så assignes alt til heisen som er master (må ta inn own id) - er det nødvendig? 
+// TODO sjekke om det finnes elevators i live og som ikke er stuck - hvis ikke så assignes alt til heisen som er master (må ta inn own id) - er det nødvendig?
