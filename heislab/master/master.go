@@ -9,11 +9,11 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master(initCalls BackupCalls) {
-	fmt.Println(initCalls.Id, "entered master mode")
+func Master(initCalls Calls, Id int) {
+	fmt.Println(Id, "entered master mode")
 
-	callsUpdateCh := make(chan UpdateCalls, 2)
-	callsToAssignCh := make(chan AssignCalls)
+	callsUpdateCh := make(chan struct{Calls Calls; AddCall bool}, 2)
+	callsToAssignCh := make(chan struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool})
 
 	stateUpdateCh := make(chan slave.Elevator)
 	assignmentsToSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
@@ -21,9 +21,9 @@ func Master(initCalls BackupCalls) {
 
 	masterTxEnable := make(chan bool)
 
-	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(initCalls.Id), masterTxEnable)
+	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), masterTxEnable)
 
-	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls)
+	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, Id)
 	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh, assignmentsToSlaveReceiverCh)
 
 	go receiveMessagesFromSlaves(stateUpdateCh, callsUpdateCh, assignmentsToSlaveReceiverCh)

@@ -16,8 +16,8 @@ func Backup(id string) {
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	backupsTxEnable := make(chan bool)
-	backupCallsTx := make(chan master.BackupCalls)
-	masterCallsRx := make(chan master.BackupCalls)
+	backupCallsTx := make(chan struct{Calls master.Calls; Id int})
+	masterCallsRx := make(chan struct{Calls master.Calls; Id int})
 
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 
@@ -31,19 +31,19 @@ func Backup(id string) {
 	fmt.Println("Backup Started: ", id)
 	var backupsUpdate peers.PeerUpdate
 	var masterUpdate peers.PeerUpdate
-	var calls master.BackupCalls
+	var calls master.Calls
+
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		panic("backup received invalid id")
 	}
-	calls.Id = idInt
 
 	masterUpgradeCooldown := time.NewTimer(1 * time.Second)
 	for {
 		select {
 		case c := <-masterCallsRx:
 			if len(masterUpdate.Peers) > 0 && strconv.Itoa(c.Id) == masterUpdate.Peers[0] {
-				calls.Calls = c.Calls
+				calls = c.Calls
 			} else {
 				fmt.Println("received a message from not the master")
 			}
@@ -63,7 +63,7 @@ func Backup(id string) {
 		case <-time.After(time.Second * 2):
 			fmt.Println("backup select blocked for 2 seconds. this should only happen if there are no masters, maybe this is too short?")
 		}
-		backupCallsTx <- calls
+		backupCallsTx <- master.BackupCalls{Calls: calls, Id: idInt}
 		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {
 			select {
 			case <-masterUpgradeCooldown.C:
@@ -73,7 +73,7 @@ func Backup(id string) {
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls)
+			master.Master(calls, idInt)
 			panic("the master phase should never return")
 		}
 	}

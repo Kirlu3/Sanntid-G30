@@ -37,7 +37,7 @@ var directionMap = map[slave.ElevatorDirection]string{
 
 func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
-	callsToAssignCh <-chan AssignCalls,
+	callsToAssignCh <-chan struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool},
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
