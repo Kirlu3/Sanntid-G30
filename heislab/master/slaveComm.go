@@ -12,71 +12,62 @@ import (
 )
 
 /*
-receiveMessagesFromSlaves handles updates from the slaves and updates the state of the elevators accordingly. The routine also either add or remove calls dependent on the type of event in the update from the slaves.
+Listens to button presses from the slaves
+Acknowledges the button press
+Sends an update to the assigner for the button press
 */
-func receiveMessagesFromSlaves(
-	stateUpdateCh chan<- slave.Elevator,
+func receiveButtonPress(
 	callsUpdateCh chan<- UpdateCalls,
-	assignmentsToSlaveReceiver <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineCh <-chan slave.EventMessage,
+	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
 ) {
-
-	slaveRx := make(chan slave.EventMessage)
-	go receiveUniqueMessages(slaveRx)
+	//make a channel to receive buttons
+	rx := make(chan slave.ButtonMessage)
+	go bcast.Receiver(config.SlaveBasePort, rx)
+	//ack channel to send acknowledgments
+	ack := make(chan int)
+	go bcast.Transmitter(config.SlaveBasePort+10, ack)
 
 	go func() {
-		for msg := range slaveToMasterOfflineCh {
-			slaveRx <- msg
+		for newBtn := range slaveToMasterOfflineButton {
+			callsUpdateCh <- makeAddCallsUpdate(newBtn)
 		}
 	}()
-	var assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	for {
-		select {
-		case update := <-slaveRx:
-			fmt.Println("ST: Received new message")
-			fmt.Println(update)
-			switch update.Event {
-			case slave.Button:
-				//stateUpdateCh <- update.Elevator //can no longer do this with how button presses are set up
-				callsUpdateCh <- makeAddCallsUpdate(update)
-			case slave.FloorArrival:
-				stateUpdateCh <- update.Elevator
-				if update.Elevator.Behaviour == slave.EB_DoorOpen {
-					callsUpdateCh <- makeRemoveCallsUpdate(update, assignments)
-				}
-			case slave.Stuck:
-				stateUpdateCh <- update.Elevator
+
+	var msgID []int
+	for newBtn := range rx {
+		println("ST: Received message")
+		ack <- newBtn.MsgID
+		fmt.Println("ST: Sent Ack", newBtn.MsgID)
+		if !slices.Contains(msgID, newBtn.MsgID) {
+			msgID = append(msgID, newBtn.MsgID)
+			// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+			if len(msgID) > 20 {
+				msgID = msgID[1:]
 			}
-		case assignments = <-assignmentsToSlaveReceiver:
-			continue
+			callsUpdateCh <- makeAddCallsUpdate(newBtn)
 		}
 	}
 }
 
 /*
-receiveMessageFromSlave listens to the SlaveBasePort+slaveID (from config) for messages from slaves and transmitts the message IDs to the SlaveBasePort+10+slaveID (from config).
+Listens to UDP broadcasts from the slaves
 */
-func receiveUniqueMessages(slaveRx chan<- slave.EventMessage) {
+func receiveElevatorUpdate(
+	elevatorUpdateCh chan<- [config.N_ELEVATORS]slave.Elevator,
+	callsUpdateCh chan<- UpdateCalls,
+	slaveToMasterOfflineElevator <-chan slave.Elevator,
 
-	//rx channel for receiving messages
-	rx := make(chan slave.EventMessage)
-	go bcast.Receiver(config.SlaveBasePort, rx)
-	//ack channel to send an acknowledgments
-	ack := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort+10, ack)
-
-	var msgID []int
-	for msg := range rx {
-		println("ST: Received message")
-		ack <- msg.MsgID
-		fmt.Println("ST: Sent Ack", msg.MsgID)
-		if !slices.Contains(msgID, msg.MsgID) {
-			msgID = append(msgID, msg.MsgID)
-			// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
-			if len(msgID) > 20 {
-				msgID = msgID[1:]
+) {
+	rx := make(chan slave.Elevator)
+	elevators := [config.N_ELEVATORS]slave.Elevator{}
+	go bcast.Receiver(config.SlaveBasePort+5, rx)
+	for elevatorUpdate := range rx {
+		if elevators[elevatorUpdate.ID] != elevatorUpdate {
+			elevators[elevatorUpdate.ID] = elevatorUpdate
+			elevatorUpdateCh <- elevators
+			if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
+				callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
 			}
-			slaveRx <- msg
 		}
 	}
 }
@@ -88,15 +79,17 @@ Output: UpdateCalls struct
 
 Function transforms the inputs to the right output type that is used for handling updates in the calls.
 */
-func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) UpdateCalls {
+func makeRemoveCallsUpdate(elevator slave.Elevator) UpdateCalls {
 	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = false
 
-	callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Elevator.Floor] = true
-	for btn := range config.N_BUTTONS - 1 {
-		if assignments[msg.Elevator.ID][msg.Elevator.Floor][btn] && !msg.Elevator.Requests[msg.Elevator.Floor][btn] {
-			callsUpdate.Calls.HallCalls[msg.Elevator.Floor][btn] = true
-		}
+	callsUpdate.Calls.CabCalls[elevator.ID][elevator.Floor] = true
+	switch elevator.Direction {
+	case slave.D_Down:
+		callsUpdate.Calls.HallCalls[elevator.Floor][elevio.BT_HallDown] = true
+	case slave.D_Up:
+		callsUpdate.Calls.HallCalls[elevator.Floor][elevio.BT_HallUp] = true
+	default:
 	}
 	return callsUpdate
 }
@@ -108,13 +101,13 @@ Output: UpdateCalls
 
 Function transforms the input to the right output type that is used for handling updates in the calls.
 */
-func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
+func makeAddCallsUpdate(newBtn slave.ButtonMessage) UpdateCalls {
 	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = true
-	if msg.Btn.Button == elevio.BT_Cab {
-		callsUpdate.Calls.CabCalls[msg.Elevator.ID][msg.Btn.Floor] = true
+	if newBtn.BtnPress.Button == elevio.BT_Cab {
+		callsUpdate.Calls.CabCalls[newBtn.ElevID][newBtn.BtnPress.Floor] = true
 	} else {
-		callsUpdate.Calls.HallCalls[msg.Btn.Floor][msg.Btn.Button] = true
+		callsUpdate.Calls.HallCalls[newBtn.BtnPress.Floor][newBtn.BtnPress.Button] = true
 	}
 	return callsUpdate
 }
@@ -129,9 +122,6 @@ func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][c
 
 	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
-		//Gives message frequency
-		time.Sleep(time.Millisecond * 5)
-
 		select {
 		case msg = <-toSlaveCh:
 			fmt.Println("ST: New orders sent")
@@ -141,5 +131,6 @@ func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][c
 		default:
 			tx <- msg
 		}
+		time.Sleep(time.Millisecond * time.Duration(config.BroadcastMessagePeriodMs))
 	}
 }

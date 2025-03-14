@@ -56,19 +56,12 @@ Input: The new elevator struct, the old elevator struct, the channel to send mes
 
 Returns: The updated elevator struct
 */
-func elevator_updateElevator(n_elevator Elevator, elevator Elevator, tx chan<- EventMessage, t_start chan int) Elevator {
-	if elevator_validElevator(n_elevator) {
+func elevator_updateElevator(nElevator Elevator, elevator Elevator, updateElevator chan<- Elevator, t_start chan int) Elevator {
+	if elevator_validElevator(nElevator) {
 		fmt.Println("Valid elevator")
-		io_activateIO(n_elevator, t_start)
-
-		if n_elevator.Stuck != elevator.Stuck { //if stuck status has changed
-			tx <- EventMessage{0, n_elevator, Stuck, elevio.ButtonEvent{}} //send message to master
-		}
-
-		if n_elevator.Behaviour == EB_DoorOpen || n_elevator.Floor != elevator.Floor { //if the elevator is at a floor or the door is open
-			tx <- EventMessage{0, n_elevator, FloorArrival, elevio.ButtonEvent{}} //send message to master
-		}
-		return n_elevator
+		io_activateIO(nElevator, t_start)
+		updateElevator <- nElevator
+		return nElevator
 	}
 	return elevator
 }

@@ -12,7 +12,8 @@ import (
 func Slave(
 	id string,
 	masterToSlaveOfflineCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineCh chan<- EventMessage,
+	slaveToMasterOfflineButton chan<- ButtonMessage,
+	slaveToMasterOfflineElevator chan<- Elevator,
 ) {
 	ID, _ := strconv.Atoi(id)
 	//initialize channels
@@ -22,7 +23,7 @@ func Slave(
 	drv_stop := make(chan bool)
 	t_start := make(chan int)
 
-	tx := make(chan EventMessage, 2)
+	elevatorUpdate := make(chan Elevator, 2)
 	ordersRx := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
 
 	//initialize timer
@@ -37,8 +38,9 @@ func Slave(
 	go elevio.PollStopButton(drv_stop)
 
 	//initialize network
-	go network_sender(tx, drv_buttons, slaveToMasterOfflineCh, ID)
+	go network_buttonSender(drv_buttons, slaveToMasterOfflineButton, ID)
+	go network_broadcast(elevatorUpdate, slaveToMasterOfflineElevator)
 	go network_receiver(ordersRx, masterToSlaveOfflineCh, ID)
 
-	go fsm_fsm(ID, tx, ordersRx, drv_floors, drv_obstr, drv_stop, t_start, t_end)
+	go fsm_fsm(ID, elevatorUpdate, ordersRx, drv_floors, drv_obstr, drv_stop, t_start, t_end)
 }
