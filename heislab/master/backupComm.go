@@ -11,19 +11,51 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
+
+// Contains arrays of all HallCalls and CabCalls
+type Calls struct {
+	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
+	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool
+}
+
+// The messages sent between masters and backups
+type BackupCalls struct {
+	Calls Calls
+	Id    int
+}
+
+// The message sent to the assigner
+type AssignCalls struct {
+	Calls          Calls
+	AliveElevators [config.N_ELEVATORS]bool
+}
+
+// The added/removed calls we get from the slaveRx
+type UpdateCalls struct {
+	Calls   Calls
+	AddCall bool
+}
+
+// struct{Calls Calls; Id int}
+// struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool}
+// struct{Calls Calls; AddCall bool}
+
 /* 
 backupsTx transmitts calls read from the callsToBackupsCh channel to the backups
 */
-func backupsTx(callsToBackupsCh <-chan Calls, initCalls BackupCalls) {
-	masterCallsTx := make(chan BackupCalls)
+func backupsTx(callsToBackupsCh <-chan Calls, initCalls Calls, Id int) {
+	masterCallsTx := make(chan struct {
+		Calls Calls
+		Id    int
+	})
 	go bcast.Transmitter(config.MasterCallsPort, masterCallsTx)
 	calls := initCalls
 	for {
 		select {
-		case calls.Calls = <-callsToBackupsCh:
-			masterCallsTx <- calls
+		case calls = <-callsToBackupsCh:
+			masterCallsTx <- BackupCalls{Calls: calls, Id: Id}
 		case <-time.After(config.MasterMessagePeriodSeconds):
-			masterCallsTx <- calls
+			masterCallsTx <- BackupCalls{Calls: calls, Id: Id}
 		}
 	}
 
@@ -57,27 +89,36 @@ This routine handles acknowledgments from alive backups, ensuring that all backu
 It also manages the reassignment of calls when necessary.
 */
 func backupAckRx(
-	callsUpdateCh <-chan UpdateCalls,
-	callsToAssignCh chan<- AssignCalls,
-	initCalls BackupCalls,
+	callsUpdateCh <-chan struct {
+		Calls   Calls
+		AddCall bool
+	},
+	callsToAssignCh chan<- struct {
+		Calls          Calls
+		AliveElevators [config.N_ELEVATORS]bool
+	},
+	calls Calls,
+	Id int,
 ) {
-	Id := initCalls.Id
-
-	otherMasterCallsCh := make(chan BackupCalls)
+	otherMasterCallsCh := make(chan struct {
+		Calls Calls
+		Id    int
+	})
 	aliveBackupsCh := make(chan []string)
 	callsToBackupsCh := make(chan Calls)
-	backupCallsRx := make(chan BackupCalls)
+	backupCallsRx := make(chan struct {
+		Calls Calls
+		Id    int
+	})
 
 	go bcast.Receiver(config.BackupsCallsPort, backupCallsRx)
 	go lookForOtherMasters(otherMasterCallsCh, Id)
 	go aliveBackupsRx(aliveBackupsCh)
-	go backupsTx(callsToBackupsCh, initCalls)
+	go backupsTx(callsToBackupsCh, calls, Id)
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
-	calls := initCalls.Calls
-	wantReassignment := false
-
+	wantReassignment := true //why?
 mainLoop:
 	for {
 		select {

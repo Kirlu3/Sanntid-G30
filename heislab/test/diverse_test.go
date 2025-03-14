@@ -176,3 +176,39 @@ func TestCompareStructs(t *testing.T) {
 	calls1.Calls.CabCalls[0][0] = false
 	fmt.Println(calls1 == calls2)
 }
+
+
+func TestChans(t *testing.T) {
+    backupCallsCh := make(chan struct {
+        Calls master.Calls
+        Id   int
+    })
+
+	assignCallsCh := make(chan struct {
+        Calls master.Calls
+        AliveElevators [config.N_ELEVATORS]bool
+    })
+
+	updateCallsCh := make(chan struct {
+        Calls master.Calls
+        AddCall bool
+    })
+
+	// aCh := make(chan master.UpdateCalls)
+	func(chan struct {
+        Calls master.Calls
+        AliveElevators [config.N_ELEVATORS]bool
+    }) {
+		return
+	}(assignCallsCh)
+	var a master.UpdateCalls
+	updateCallsCh <- a
+
+	var calls master.Calls
+	id := 1
+	var s master.BackupCalls
+
+	backupCallsCh <- master.BackupCalls{Calls: calls, Id: id}
+	backupCallsCh <- s
+
+}
