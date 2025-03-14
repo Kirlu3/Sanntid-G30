@@ -11,7 +11,9 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-// how do I clear orders?
+/*
+receiveMessagesFromSlaves handles updates from the slaves and updates the state of the elevators accordingly. The routine also either add or remove calls dependent on the type of event in the update from the slaves.
+*/
 func receiveMessagesFromSlaves(
 	stateUpdateCh chan<- slave.Elevator,
 	callsUpdateCh chan<- UpdateCalls,
@@ -21,6 +23,7 @@ func receiveMessagesFromSlaves(
 
 	slaveRx := make(chan slave.EventMessage)
 	go receiveUniqueMessages(slaveRx)
+
 	go func() {
 		for msg := range slaveToMasterOfflineCh {
 			slaveRx <- msg
@@ -50,6 +53,9 @@ func receiveMessagesFromSlaves(
 	}
 }
 
+/*
+receiveMessageFromSlave listens to the SlaveBasePort+slaveID (from config) for messages from slaves and transmitts the message IDs to the SlaveBasePort+10+slaveID (from config).
+*/
 func receiveUniqueMessages(slaveRx chan<- slave.EventMessage) {
 
 	//rx channel for receiving messages
@@ -75,7 +81,13 @@ func receiveUniqueMessages(slaveRx chan<- slave.EventMessage) {
 	}
 }
 
-// TODO fix logic for removing hall calls, because it doesnt really make any sense to me
+/*
+Inputs: EventMessage and an array of the assignments
+
+Output: UpdateCalls struct
+
+Function transforms the inputs to the right output type that is used for handling updates in the calls.
+*/
 func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) UpdateCalls {
 	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = false
@@ -89,6 +101,13 @@ func makeRemoveCallsUpdate(msg slave.EventMessage, assignments [config.N_ELEVATO
 	return callsUpdate
 }
 
+/*
+Input: EventMessage
+
+Output: UpdateCalls
+
+Function transforms the input to the right output type that is used for handling updates in the calls.
+*/
 func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
 	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = true
@@ -100,10 +119,11 @@ func makeAddCallsUpdate(msg slave.EventMessage) UpdateCalls {
 	return callsUpdate
 }
 
-func sendMessagesToSlaves(
-	toSlaveCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-) {
+/*
+Handles transmitting the assignments received on the toSlaveCh channel to the slaves on the SlaveBasePort-1 port.
+*/
+func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Transmitter(config.SlaveBasePort-1, tx)
 
@@ -123,8 +143,3 @@ func sendMessagesToSlaves(
 		}
 	}
 }
-
-/*TODO:
--Fix what happens if a slave gets an order it immediately completes
--Consider an event for a slave clearing an order it sent
-	-Solution to above ^ master should know the slave will clear said order*/

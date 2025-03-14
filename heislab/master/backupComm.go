@@ -11,6 +11,9 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
+/* 
+backupsTx transmitts calls read from the callsToBackupsCh channel to the backups
+*/
 func backupsTx(callsToBackupsCh <-chan Calls, initCalls BackupCalls) {
 	masterCallsTx := make(chan BackupCalls)
 	go bcast.Transmitter(config.MasterCallsPort, masterCallsTx)
@@ -26,6 +29,10 @@ func backupsTx(callsToBackupsCh <-chan Calls, initCalls BackupCalls) {
 
 }
 
+
+/*
+aliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the aliveBackups to the aliveBackupsCh. 
+*/
 func aliveBackupsRx(aliveBackupsCh chan<- []string) {
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
@@ -43,9 +50,14 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string) {
 	}
 }
 
-// when all aliveBackups have the same calls as requestBackupAck send lightsToSlave
+/*
+backupAckRx starts goroutines to manage backup synchronization. It looks for other masters, tracks the status of alive backups, and sends call assignments to backups as needed.
+
+This routine handles acknowledgments from alive backups, ensuring that all backups are synchronized with the current set of calls before turning the button lights on. 
+It also manages the reassignment of calls when necessary.
+*/
 func backupAckRx(
-	callsUpdateCh <-chan UpdateCalls, //the message we get from slaveRx to calculate updated calls are doesnt have to be this type, but with this + calls we should be able to calculate what the updated calls should be
+	callsUpdateCh <-chan UpdateCalls,
 	callsToAssignCh chan<- AssignCalls,
 	initCalls BackupCalls,
 ) {
@@ -55,7 +67,6 @@ func backupAckRx(
 	aliveBackupsCh := make(chan []string)
 	callsToBackupsCh := make(chan Calls)
 	backupCallsRx := make(chan BackupCalls)
-	
 
 	go bcast.Receiver(config.BackupsCallsPort, backupCallsRx)
 	go lookForOtherMasters(otherMasterCallsCh, Id)
@@ -65,10 +76,10 @@ func backupAckRx(
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
 	calls := initCalls.Calls
-	wantReassignment := false //why?
+	wantReassignment := false
+
 mainLoop:
 	for {
-		// fmt.Println("blocking?")
 		select {
 		case callsUpdate := <-callsUpdateCh:
 			if callsUpdate.AddCall {
@@ -132,7 +143,7 @@ mainLoop:
 				AliveElevators[idx] = true
 			}
 			AliveElevators[Id] = true
-			callsToAssignCh <- AssignCalls{Calls: calls, AliveElevators: AliveElevators} // orders to assign, do we ever block here?
+			callsToAssignCh <- AssignCalls{Calls: calls, AliveElevators: AliveElevators}
 			wantReassignment = false
 		}
 	}
@@ -173,7 +184,7 @@ func union(calls1 Calls, calls2 Calls) Calls {
 	return unionCalls
 }
 
-// returns the set difference of calls and removedCalls
+// returns the set difference between calls and removedCalls
 func removeCalls(calls Calls, removedCalls Calls) Calls {
 	updatedCalls := calls
 

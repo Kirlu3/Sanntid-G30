@@ -1,4 +1,5 @@
-## Slave module:
+Master module
+===================
 
 Consists of the following files:
 - assigner.go

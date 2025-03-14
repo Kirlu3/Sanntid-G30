@@ -7,7 +7,7 @@ import (
 
 type Calls struct {
 	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool 
+	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool
 }
 
 type WorldView struct {
@@ -17,8 +17,6 @@ type WorldView struct {
 	CabCalls       [config.N_ELEVATORS][config.N_FLOORS]bool
 	AliveElevators [config.N_ELEVATORS]bool
 }
-
-// ok this is kind of stupid but i dont know what to do about it
 
 type BackupCalls struct {
 	Calls Calls

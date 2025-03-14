@@ -35,36 +35,47 @@ var directionMap = map[slave.ElevatorDirection]string{
 	slave.D_Up:   "up",
 }
 
+/*
+stateUpdateCh receives updates about the state of the elevators
+
+callsToAssignCh receives the calls that should be assigned and a list over the alive elevators
+
+assignmentsToSlaveCh sends the assigned orders to the function that handles sending them to the slaves
+
+assignmentsToSlaveReceiver sends the assigned calls to the receiver that receives messages from the slaves, and is is used to clear orders
+*/
 func assignOrders(
 	stateUpdateCh <-chan slave.Elevator,
 	callsToAssignCh <-chan AssignCalls,
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
-	var state WorldView // consider waiting for state init
+	var state WorldView
 	for i := range config.N_ELEVATORS {
-		state.Elevators[i].ID = i // suggested fix to assigner init bug
+		state.Elevators[i].ID = i
 	}
 	for {
 		select {
 		case stateUpdate := <-stateUpdateCh:
 			prevElevator := state.Elevators[stateUpdate.ID]
 			state.Elevators[stateUpdate.ID] = stateUpdate
+
 			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
 				assignments := assign(state)
 				assignmentsToSlaveCh <- assignments
 				assignmentsToSlaveReceiver <- assignments
 			}
 			fmt.Println("As:Received new states")
+
 		default:
 			select {
 			case calls := <-callsToAssignCh:
 				state.CabCalls = calls.Calls.CabCalls
 				state.HallCalls = calls.Calls.HallCalls
 				state.AliveElevators = calls.AliveElevators
+
 				fmt.Printf("As: state: %v\n", state)
 				assignments := assign(state)
-				//fmt.Printf("assigned:%v\n", assignments)
 				assignmentsToSlaveCh <- assignments
 				assignmentsToSlaveReceiver <- assignments
 				fmt.Println("As:Succeded")
@@ -75,8 +86,12 @@ func assignOrders(
 
 }
 
-func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { // [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+/*
+Input: the masters WorldView
 
+Output: an array containing which calls go to which elevator
+*/
+func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	hraExecutable := ""
 
 	switch runtime.GOOS {
@@ -109,6 +124,11 @@ func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTT
 	return output
 }
 
+/*
+Input: the masters worldview
+
+Output: JSON encoding of the masters worldview removing stuck and non-alive elevators
+*/
 func transformInput(state WorldView) []byte { // transforms from WorldView to json format
 
 	input := HRAInput{
@@ -117,7 +137,7 @@ func transformInput(state WorldView) []byte { // transforms from WorldView to js
 	}
 
 	// adding all non-stuck and alive elevators to the state map
-	for i := 0; i < len(state.Elevators); i++ {
+	for i := range len(state.Elevators) {
 		if !state.Elevators[i].Stuck && state.AliveElevators[i] {
 			input.States[strconv.Itoa(state.Elevators[i].ID)] = HRAElevState{
 				Floor:       state.Elevators[i].Floor,
@@ -137,6 +157,11 @@ func transformInput(state WorldView) []byte { // transforms from WorldView to js
 	return inputJsonFormat
 }
 
+/*
+Input: JOSN encoding of the assigned orders
+
+Output: an array of the assigned orders
+*/
 func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
 	tempOutput := new(map[string][config.N_FLOORS][2]bool)
@@ -160,43 +185,8 @@ func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATO
 			// appending cab calls from worldview of each floor to the output
 			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][0], tempElevatorOrders[floor][1], state.CabCalls[elevatorNr][floor]}
 		}
-
 		output[elevatorNr] = elevatorOrders
 	}
 
 	return output
 }
-
-/*
-
-- assigner håndterer bare hall rqeuests og ikke cab requests
-
-*/
-
-/* struktur på tempOutput:
-	"id_1" : [[Boolean, Boolean], ...],
-    "id_2" : ...
-*/
-
-// struktur på output:
-/*[
-	[ elevator 0
-		[up, down, cab], // floor 0
-		[up, down, cab], // floor 1
-		[up, down, cab], // floor 2
-		[up, down, cab] // floor 3
-	],
-	[ elevator 1
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]]
-	],
-	[ elevator 2
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]]
-	]
-]
-*/

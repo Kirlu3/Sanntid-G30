@@ -1,23 +1,20 @@
-# Sanntid-G30
-Sanntidsprosjekt gruppe 30 V25
+System overviev:
+===================
+We are employing a primary-backup/master-slave architecture where each machine consists of two independent processes. Each machine has a slave module dealing with elevator interfacing in addition to either a master or backup module. 
 
-Project is run by calling ./restart.sh elevator_id elevator_server_port
+## Master 
+Assgin calls to slave as well as sending them to the backup(s). Only assigns orders, and thus turns on lights, after orders have been confirmed by backups, thus ensuring service guarantee. 
 
+## Backup 
+A backup of the assigned calls in case master crashes along with a timer to transition to the master phase in the case of a crash.
 
-TODO:
--Add comments (docstring) to *every* function
-    -Stuff like output and input and purpose
+## Slave  
+Acts according to the calls assigned to it by the master. Main loop consists of a finite state machine for elevator action.
 
--Watchdog with program that restarts on a crash (would fix the occasional crashes on startup)
+## How to run
+On each machine call ./run.sh id portNumber
+Where id is the elevator id (normally 0-2) and the port to interface with the elevator server.
+You may have to call the elevator server with the same port. This is done with either ./SimElevatorServer --port portNumber or elevatorserver --port portNumber at sanntidsalen. 
 
--FIX: Cab lights turning off when obstruction is flipped
-
--Consider: with a lot of packet loss so messages take a long time and new assignments are sent before a previous clear was received
-
--Consider: not using the id fields to do assingments
-
-Ensure: That all cab orders from an offline elevator is sent to the corresponding master before it is potentially crashed by encountering another master with higher priority
-
--Implement single elevator mode for when network connection is missing
-
--Case of assignment not possible needs to be addressed, refuse assignment? but then the call is stored but no action is taken, which could lead to weird behaviour (we have the call in our system, but no lights, when is this update implemented) assign everything to the master? the exact assignments might not matter since no calls will actually be taken, but try to reduce inconsistency/ information loss
+## Extra note:
+The run.sh file will compile the program and start it, in addition to restarting it on encountering exit code 42. These are planned panics by us calling os.Exit(42) leading to a program restart. 
