@@ -41,7 +41,7 @@ func assignOrders(
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
-	var state WorldView // consider waiting for state init
+	var state := struct {[config.N]slave.Elevator, } // consider waiting for state init
 	for i := range config.N_ELEVATORS {
 		state.Elevators[i].ID = i // suggested fix to assigner init bug
 	}
@@ -200,3 +200,9 @@ func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATO
 	]
 ]
 */
+
+
+
+// TODO fjerne worldviewobjektet fra assigner og heller bruke elevator og assigncalls direkte 
+// sjekke om det finnes elevators i live og som ikke er stuck  - hvis ikke så assignes alt til heisen som er master (må ta inn own id)
+// kan fjerne stuck elevators fra alive elevators listen 
