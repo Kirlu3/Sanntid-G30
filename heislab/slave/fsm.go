@@ -13,15 +13,15 @@ import (
 
 Input: the elevator ID and all relevant channels
 */
-func fsm_fsm(ID int, tx chan<- EventMessage, ordersRx <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
+func fsm_fsm(ID int, updateElevator chan<- Elevator, ordersRx <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
 	drv_floors <-chan int, drv_obstr <-chan bool, drv_stop <-chan bool, t_start chan int, t_end *time.Timer) {
 	//initialize elevator
 	var elevator Elevator
 	elevator.ID = ID
 	io_updateLights(elevator.Requests)
 
-	n_elevator := fsm_onInit(elevator)
-	elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+	nElevator := fsm_onInit(elevator)
+	elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
 
 	for {
 		fmt.Println("FSM:New Loop")
@@ -30,25 +30,25 @@ func fsm_fsm(ID int, tx chan<- EventMessage, ordersRx <-chan [config.N_FLOORS][c
 			fmt.Println("Slave: Updating orders")
 
 			elevator.Requests = newRequests
-			n_elevator = fsm_onRequests(elevator)
-			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+			nElevator = fsm_onRequests(elevator)
+			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
 
 		case floor := <-drv_floors:
 			fmt.Println("FSM: Floor arrival", floor)
-			n_elevator = fsm_onFloorArrival(floor, elevator)
-			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+			nElevator = fsm_onFloorArrival(floor, elevator)
+			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
 
 		case obs := <-drv_obstr:
-			n_elevator = fsm_onObstruction(obs, elevator)
-			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+			nElevator = fsm_onObstruction(obs, elevator)
+			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
 
 		case <-drv_stop:
 			fsm_onStopButtonPress()
 
 		case <-t_end.C:
 			fmt.Println("FSM: Timer end")
-			n_elevator = fsm_onTimerEnd(elevator)
-			elevator = elevator_updateElevator(n_elevator, elevator, tx, t_start)
+			nElevator = fsm_onTimerEnd(elevator)
+			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
 		}
 	}
 }
@@ -85,7 +85,10 @@ func fsm_onRequests(elevator Elevator) Elevator {
 		if elevator.Behaviour == EB_DoorOpen {
 			elevator = requests_clearAtCurrentFloor(elevator)
 		}
+	case EB_DoorOpen:
+		elevator = requests_clearAtCurrentFloor(elevator)
 	}
+
 	return elevator
 }
 

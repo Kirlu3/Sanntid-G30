@@ -141,14 +141,8 @@ func requests_clearAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.Requests[elevator.Floor][elevio.BT_Cab] = false
 	switch elevator.Direction {
 	case D_Up:
-		if !requests_above(elevator) && !elevator.Requests[elevator.Floor][elevio.BT_HallUp] {
-			elevator.Requests[elevator.Floor][elevio.BT_HallDown] = false
-		}
 		elevator.Requests[elevator.Floor][elevio.BT_HallUp] = false
 	case D_Down:
-		if !requests_below(elevator) && !elevator.Requests[elevator.Floor][elevio.BT_HallDown] {
-			elevator.Requests[elevator.Floor][elevio.BT_HallUp] = false
-		}
 		elevator.Requests[elevator.Floor][elevio.BT_HallDown] = false
 	default:
 		elevator.Requests[elevator.Floor][elevio.BT_HallUp] = false
