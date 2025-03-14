@@ -23,13 +23,20 @@ A large portion of the backup code are pretty prints of updates to peer lists.
 func Backup(
 	id string,
 	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineCh <-chan slave.EventMessage,
+	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
+	slaveToMasterOfflineElevator <-chan slave.Elevator,
 ) {
 	masterUpdateCh := make(chan peers.PeerUpdate)
 	backupsUpdateCh := make(chan peers.PeerUpdate)
 	backupsTxEnable := make(chan bool)
-	backupCallsTx := make(chan struct{Calls master.Calls; Id int})
-	masterCallsRx := make(chan struct{Calls master.Calls; Id int})
+	backupCallsTx := make(chan struct {
+		Calls master.Calls
+		Id    int
+	})
+	masterCallsRx := make(chan struct {
+		Calls master.Calls
+		Id    int
+	})
 
 	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
 
@@ -85,7 +92,7 @@ func Backup(
 			}
 		}() {
 			backupsTxEnable <- false
-			master.Master(calls, idInt, masterToSlaveOfflineCh, slaveToMasterOfflineCh)
+			master.Master(calls, idInt, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
 			panic("the master phase should never return")
 		}
 	}

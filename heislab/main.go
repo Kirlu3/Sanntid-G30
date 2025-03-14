@@ -29,12 +29,12 @@ func main() {
 	serverAddress := fmt.Sprintf("localhost:%s", *serverPort)
 	elevio.Init(serverAddress, config.N_FLOORS)
 
-
 	masterToSlaveOfflineCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	slaveToMasterOfflineCh := make(chan slave.EventMessage)
+	slaveToMasterOfflineButton := make(chan slave.ButtonMessage)
+	slaveToMasterOfflineElevator := make(chan slave.Elevator)
 
-	go slave.Slave(*id, masterToSlaveOfflineCh, slaveToMasterOfflineCh)
-	go backup.Backup(*id, masterToSlaveOfflineCh, slaveToMasterOfflineCh)
+	go slave.Slave(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
+	go backup.Backup(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
 
 	// Watchdog
 	ID, _ := strconv.Atoi(*id)
