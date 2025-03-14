@@ -41,29 +41,32 @@ func assignOrders(
 	assignmentsToSlaveCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	assignmentsToSlaveReceiver chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
-	var state := struct {[config.N]slave.Elevator, } // consider waiting for state init
+	
+	elevators := [config.N_ELEVATORS]slave.Elevator{} // consider waiting for state init
+	calls := AssignCalls{}
+
 	for i := range config.N_ELEVATORS {
-		state.Elevators[i].ID = i // suggested fix to assigner init bug
+		elevators[i].ID = i // suggested fix to assigner init bug
 	}
 	for {
 		select {
 		case stateUpdate := <-stateUpdateCh:
-			prevElevator := state.Elevators[stateUpdate.ID]
-			state.Elevators[stateUpdate.ID] = stateUpdate
+			prevElevator := elevators[stateUpdate.ID]
+			elevators[stateUpdate.ID] = stateUpdate
+
 			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
-				assignments := assign(state)
+				calls.AliveElevators[stateUpdate.ID] = !stateUpdate.Stuck // acts as if the elevator is dead if it is stuck
+				assignments := assign(elevators, calls)
 				assignmentsToSlaveCh <- assignments
 				assignmentsToSlaveReceiver <- assignments
 			}
 			fmt.Println("As:Received new states")
 		default:
 			select {
-			case calls := <-callsToAssignCh:
-				state.CabCalls = calls.Calls.CabCalls
-				state.HallCalls = calls.Calls.HallCalls
-				state.AliveElevators = calls.AliveElevators
-				fmt.Printf("As: state: %v\n", state)
-				assignments := assign(state)
+			case calls = <-callsToAssignCh:
+				
+				fmt.Printf("As: state: %v\n", elevators)
+				assignments := assign(elevators, calls)
 				//fmt.Printf("assigned:%v\n", assignments)
 				assignmentsToSlaveCh <- assignments
 				assignmentsToSlaveReceiver <- assignments
@@ -75,7 +78,7 @@ func assignOrders(
 
 }
 
-func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { // [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool { 
 
 	hraExecutable := ""
 
@@ -87,43 +90,48 @@ func assign(state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTT
 	default:
 		panic("OS not supported")
 	}
-	input := transformInput(state) // transforms input from worldview to HRAInput
+	
+	input := transformInput(elevators, callsToAssign) // transforms input from worldview to HRAInput
+
+	fmt.Println("Input to assigner: ", string(input))
 
 	// assign and returns output in json format
 	outputJsonFormat, errAssign := exec.Command("heislab/Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
-		fmt.Println("Error occured when assigning: ", errAssign)
+		fmt.Println("Error occured when assigning: ", errAssign,", output: ", string(outputJsonFormat))
 	}
 
 	// transforms output from json format to the correct ouputformat
-	output := transformOutput(outputJsonFormat, state)
+	output := transformOutput(outputJsonFormat, callsToAssign)
 
 	// make sure cab calls are not overwritten if elevator is stuck or not alive
-	for i := 0; i < config.N_ELEVATORS; i++ {
-		for j := 0; j < config.N_FLOORS; j++ {
-			output[i][j][2] = state.CabCalls[i][j]
+	for elev := range(config.N_ELEVATORS) {
+		for floor := range(config.N_FLOORS){
+			output[elev][floor][2] = callsToAssign.Calls.CabCalls[elev][floor]
 		}
 	}
+
+	fmt.Println("Output from assigner: ", output)
 
 	return output
 }
 
-func transformInput(state WorldView) []byte { // transforms from WorldView to json format
+func transformInput(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) []byte {
 
 	input := HRAInput{
-		HallRequests: state.HallCalls[:],
+		HallRequests: callsToAssign.Calls.HallCalls[:],
 		States:       map[string]HRAElevState{},
 	}
 
-	// adding all non-stuck and alive elevators to the state map
-	for i := 0; i < len(state.Elevators); i++ {
-		if !state.Elevators[i].Stuck && state.AliveElevators[i] {
-			input.States[strconv.Itoa(state.Elevators[i].ID)] = HRAElevState{
-				Floor:       state.Elevators[i].Floor,
-				Behavior:    behaviorMap[state.Elevators[i].Behaviour],
-				Direction:   directionMap[state.Elevators[i].Direction],
-				CabRequests: state.CabCalls[i][:],
+	// adding all alive elevators to the input map
+	for i := range(config.N_ELEVATORS) {
+		if callsToAssign.AliveElevators[i] {
+			input.States[strconv.Itoa(elevators[i].ID)] = HRAElevState{
+				Floor:       elevators[i].Floor,
+				Behavior:    behaviorMap[elevators[i].Behaviour],
+				Direction:   directionMap[elevators[i].Direction],
+				CabRequests: callsToAssign.Calls.CabCalls[i][:],
 			}
 		}
 	}
@@ -137,7 +145,7 @@ func transformInput(state WorldView) []byte { // transforms from WorldView to js
 	return inputJsonFormat
 }
 
-func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
+func transformOutput(outputJsonFormat []byte, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
 	tempOutput := new(map[string][config.N_FLOORS][2]bool)
 
@@ -148,7 +156,7 @@ func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATO
 	}
 
 	for elevatorKey, tempElevatorOrders := range *tempOutput {
-		elevatorNr, err_convert := strconv.Atoi(elevatorKey)
+		elevatorId, err_convert := strconv.Atoi(elevatorKey)
 
 		elevatorOrders := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
@@ -158,51 +166,13 @@ func transformOutput(outputJsonFormat []byte, state WorldView) [config.N_ELEVATO
 
 		for floor := range config.N_FLOORS {
 			// appending cab calls from worldview of each floor to the output
-			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][0], tempElevatorOrders[floor][1], state.CabCalls[elevatorNr][floor]}
+			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][0], tempElevatorOrders[floor][1], callsToAssign.Calls.CabCalls[elevatorId][floor]}
 		}
 
-		output[elevatorNr] = elevatorOrders
+		output[elevatorId] = elevatorOrders
 	}
 
 	return output
 }
 
-/*
-
-- assigner håndterer bare hall rqeuests og ikke cab requests
-
-*/
-
-/* struktur på tempOutput:
-	"id_1" : [[Boolean, Boolean], ...],
-    "id_2" : ...
-*/
-
-// struktur på output:
-/*[
-	[ elevator 0
-		[up, down, cab], // floor 0
-		[up, down, cab], // floor 1
-		[up, down, cab], // floor 2
-		[up, down, cab] // floor 3
-	],
-	[ elevator 1
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]]
-	],
-	[ elevator 2
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]],
-		[[up, down, cab]]
-	]
-]
-*/
-
-
-
-// TODO fjerne worldviewobjektet fra assigner og heller bruke elevator og assigncalls direkte 
-// sjekke om det finnes elevators i live og som ikke er stuck  - hvis ikke så assignes alt til heisen som er master (må ta inn own id)
-// kan fjerne stuck elevators fra alive elevators listen 
+// TODO sjekke om det finnes elevators i live og som ikke er stuck - hvis ikke så assignes alt til heisen som er master (må ta inn own id) - er det nødvendig? 
