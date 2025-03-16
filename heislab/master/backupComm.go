@@ -128,11 +128,9 @@ mainLoop:
 				newCalls = removeCalls(calls, callsUpdate.Calls)
 			}
 			if calls != newCalls {
-				fmt.Println("new calls")
 				calls = newCalls
 				callsToBackupsCh <- calls
 				wantReassignment = true
-				fmt.Println("wantReassignment on")
 
 				for i := range acksReceived {
 					acksReceived[i] = false
