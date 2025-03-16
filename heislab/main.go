@@ -29,17 +29,18 @@ func main() {
 	serverAddress := fmt.Sprintf("localhost:%s", *serverPort)
 	elevio.Init(serverAddress, config.N_FLOORS)
 
-	masterToSlaveOfflineCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	slaveToMasterOfflineButton := make(chan slave.ButtonMessage)
-	slaveToMasterOfflineElevator := make(chan slave.Elevator)
+	// Channels for offline communication
+	masterToSlaveCalls_offlineChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	slaveToMasterBtn_offlineChan := make(chan slave.ButtonMessage)
+	slaveToMasterElevState_offlineChan := make(chan slave.Elevator)
 
-	go slave.Slave(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
-	go backup.Backup(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
+	go slave.Slave(*id, masterToSlaveCalls_offlineChan, slaveToMasterBtn_offlineChan, slaveToMasterElevState_offlineChan)
+	go backup.Backup(*id, masterToSlaveCalls_offlineChan, slaveToMasterBtn_offlineChan, slaveToMasterElevState_offlineChan)
 
 	// Watchdog
 	ID, _ := strconv.Atoi(*id)
-	alive := make(chan bool)
-	go bcast.Transmitter(config.WatchdogPort+ID, alive)
+	programAliveChan := make(chan bool)
+	go bcast.Transmitter(config.WatchdogPort+ID, programAliveChan)
 	cmd := exec.Command("gnome-terminal", "--", "go", "run", "heislab/watchdog/watchdog.go", *id)
 	err := cmd.Start()
 	if err != nil {
@@ -49,6 +50,6 @@ func main() {
 
 	for {
 		time.After(500 * time.Millisecond)
-		alive <- true
+		programAliveChan <- true
 	}
 }

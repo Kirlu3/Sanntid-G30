@@ -9,36 +9,37 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master(
+func Master( 
 	initCalls Calls,
 	Id int,
-	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
-	slaveToMasterOfflineElevator <-chan slave.Elevator,
+	masterToSlaveCalls_offlineChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterBtn_offlineChan <-chan slave.ButtonMessage,
+	slaveToMasterElevState_offlineChan <-chan slave.Elevator,
 ) {
 	fmt.Println(Id, "entered master mode")
 
-	callsUpdateCh := make(chan struct {
+	callsUpdateChan := make(chan struct {
 		Calls   Calls
 		AddCall bool
 	}, 2)
-	callsToAssignCh := make(chan struct {
+
+	callsToAssignChan := make(chan struct {
 		Calls          Calls
 		AliveElevators [config.N_ELEVATORS]bool
 	})
 
-	stateUpdateCh := make(chan slave.Elevator)
-	assignmentsToSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	masterTxEnable := make(chan bool)
+	stateUpdateChan := make(chan slave.Elevator)
+	assignedCallsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	masterTransmitterEnableChan := make(chan bool)
 
-	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), masterTxEnable)
+	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), masterTransmitterEnableChan)
 
-	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, Id)
-	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
+	go backupAckReceiver(callsUpdateChan, callsToAssignChan, initCalls, Id)
+	go assignCalls(stateUpdateChan, callsToAssignChan, assignedCallsToSlaveChan)
 
-	go receiveButtonPress(callsUpdateCh, slaveToMasterOfflineButton)
-	go receiveElevatorUpdate(stateUpdateCh, callsUpdateCh, slaveToMasterOfflineElevator)
-	go sendMessagesToSlaves(assignmentsToSlaveCh, masterToSlaveOfflineCh)
+	go receiveButtonPress(callsUpdateChan, slaveToMasterBtn_offlineChan)
+	go receiveElevatorUpdate(stateUpdateChan, callsUpdateChan, slaveToMasterElevState_offlineChan)
+	go sendMessagesToSlaves(assignedCallsToSlaveChan, masterToSlaveCalls_offlineChan)
 
 	// the program is crashed and restarted when it should go back to backup mode
 	select {}

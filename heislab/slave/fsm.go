@@ -13,42 +13,42 @@ import (
 
 Input: the elevator ID and all relevant channels
 */
-func fsm_fsm(ID int, updateElevator chan<- Elevator, ordersRx <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
-	drv_floors <-chan int, drv_obstr <-chan bool, drv_stop <-chan bool, t_start chan int, t_end *time.Timer) {
+func fsm(ID int, elevatorUpdateChan chan<- Elevator, callsReceiverChan <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
+	drv_NewFloorChan <-chan int, drv_ObstrChan <-chan bool, drv_StopChan <-chan bool, startTimerChan chan int, timerEnd *time.Timer) {
 	//initialize elevator
 	var elevator Elevator
 	elevator.ID = ID
-	io_updateLights(elevator.Requests)
+	io_updateLights(elevator.Calls)
 
-	nElevator := fsm_onInit(elevator)
-	elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
+	nElevator := fsm_onInit(elevator) // TODO what is this for?
+	elevator = elevator_updateElevator(nElevator, elevator, elevatorUpdateChan, startTimerChan)
 
 	for {
 		fmt.Println("FSM:New Loop")
 		select {
-		case newRequests := <-ordersRx:
+		case newCalls := <- callsReceiverChan:
 			fmt.Println("Slave: Updating orders")
 
-			elevator.Requests = newRequests
+			elevator.Calls = newCalls
 			nElevator = fsm_onRequests(elevator)
-			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
+			elevator = elevator_updateElevator(nElevator, elevator,elevatorUpdateChan, startTimerChan)
 
-		case floor := <-drv_floors:
+		case floor := <- drv_NewFloorChan:
 			fmt.Println("FSM: Floor arrival", floor)
 			nElevator = fsm_onFloorArrival(floor, elevator)
-			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
+			elevator = elevator_updateElevator(nElevator, elevator, elevatorUpdateChan, startTimerChan)
 
-		case obs := <-drv_obstr:
-			nElevator = fsm_onObstruction(obs, elevator)
-			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
+		case obstr := <-drv_ObstrChan:
+			nElevator = fsm_onObstruction(obstr, elevator)
+			elevator = elevator_updateElevator(nElevator, elevator, elevatorUpdateChan, startTimerChan)
 
-		case <-drv_stop:
+		case <- drv_StopChan:
 			fsm_onStopButtonPress()
 
-		case <-t_end.C:
+		case <- timerEnd.C:
 			fmt.Println("FSM: Timer end")
 			nElevator = fsm_onTimerEnd(elevator)
-			elevator = elevator_updateElevator(nElevator, elevator, updateElevator, t_start)
+			elevator = elevator_updateElevator(nElevator, elevator, elevatorUpdateChan, startTimerChan)
 		}
 	}
 }

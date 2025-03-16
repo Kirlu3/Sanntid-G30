@@ -89,11 +89,11 @@ func receiveElevatorUpdate(
 }
 
 /*
-Inputs: EventMessage and an array of the assignments
+Input: Elevator struct
 
 Output: UpdateCalls struct
 
-Function transforms the inputs to the right output type that is used for handling updates in the calls.
+Function transforms the input to the right output type that is used for handling updates in the calls.
 */
 func makeRemoveCallsUpdate(elevator slave.Elevator) UpdateCalls {
 	var callsUpdate UpdateCalls

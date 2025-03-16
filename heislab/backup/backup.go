@@ -22,30 +22,30 @@ A large portion of the backup code are pretty prints of updates to peer lists.
 */
 func Backup(
 	id string,
-	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
-	slaveToMasterOfflineElevator <-chan slave.Elevator,
+	masterToSlaveCalls_offlineChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	slaveToMasterBtn_offlineChan <-chan slave.ButtonMessage,
+	slaveToMasterElevState_offlineChan <-chan slave.Elevator,
 ) {
-	masterUpdateCh := make(chan peers.PeerUpdate)
-	backupsUpdateCh := make(chan peers.PeerUpdate)
-	backupsTxEnable := make(chan bool)
-	backupCallsTx := make(chan struct {
+	masterUpdateChan := make(chan peers.PeerUpdate)
+	backupsUpdateChan := make(chan peers.PeerUpdate)
+	backupsTransmitterEnableChan := make(chan bool)
+	backupsCallsTransmitterChan := make(chan struct {
 		Calls master.Calls
 		Id    int
 	})
-	masterCallsRx := make(chan struct {
+	mastersCallsReceiverChan := make(chan struct {
 		Calls master.Calls
 		Id    int
 	})
 
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateChan)
 
-	go peers.Transmitter(config.BackupsUpdatePort, id, backupsTxEnable)
-	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
+	go peers.Transmitter(config.BackupsUpdatePort, id, backupsTransmitterEnableChan)
+	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateChan)
 
-	go bcast.Transmitter(config.BackupsCallsPort, backupCallsTx)
+	go bcast.Transmitter(config.BackupsCallsPort, backupsCallsTransmitterChan)
 
-	go bcast.Receiver(config.MasterCallsPort, masterCallsRx)
+	go bcast.Receiver(config.MasterCallsPort, mastersCallsReceiverChan)
 
 	fmt.Println("Backup Started: ", id)
 	var backupsUpdate peers.PeerUpdate
@@ -57,23 +57,24 @@ func Backup(
 		panic("backup received invalid id")
 	}
 
-	masterUpgradeCooldown := time.NewTimer(1 * time.Second)
+	masterUpdateCooldownTimer := time.NewTimer(1 * time.Second)
+
 	for {
 		select {
-		case c := <-masterCallsRx:
+		case c := <-mastersCallsReceiverChan:
 			if len(masterUpdate.Peers) > 0 && strconv.Itoa(c.Id) == masterUpdate.Peers[0] {
 				calls = c.Calls
 			} else {
 				fmt.Println("received a message from not the master")
 			}
 
-		case backupsUpdate = <-backupsUpdateCh:
+		case backupsUpdate = <-backupsUpdateChan:
 			fmt.Printf("Backups update:\n")
 			fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
 			fmt.Printf("  New:        %q\n", backupsUpdate.New)
 			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
-		case masterUpdate = <-masterUpdateCh:
+		case masterUpdate = <- masterUpdateChan:
 			fmt.Printf("Master update:\n")
 			fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
@@ -82,17 +83,17 @@ func Backup(
 		case <-time.After(time.Second * 2):
 			fmt.Println("backup select blocked for 2 seconds. this should only happen if there are no masters, maybe this is too short?")
 		}
-		backupCallsTx <- master.BackupCalls{Calls: calls, Id: idInt}
+		backupsCallsTransmitterChan <- master.BackupCalls{Calls: calls, Id: idInt}
 		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {
 			select {
-			case <-masterUpgradeCooldown.C:
+			case <-masterUpdateCooldownTimer.C:
 				return true
 			default:
 				return false
 			}
 		}() {
-			backupsTxEnable <- false
-			master.Master(calls, idInt, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
+			backupsTransmitterEnableChan <- false
+			master.Master(calls, idInt,  masterToSlaveCalls_offlineChan, slaveToMasterBtn_offlineChan, slaveToMasterElevState_offlineChan)
 			panic("the master phase should never return")
 		}
 	}

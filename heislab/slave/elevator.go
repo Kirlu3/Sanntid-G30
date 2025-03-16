@@ -27,7 +27,7 @@ type Elevator struct {
 	ID        int
 	Floor     int
 	Direction ElevatorDirection
-	Requests  [config.N_FLOORS][config.N_BUTTONS]bool
+	Calls  [config.N_FLOORS][config.N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
 	Stuck     bool
 }
@@ -43,7 +43,7 @@ func elevator_validElevator(elevator Elevator) bool {
 	return elevator.Behaviour >= EB_Idle && elevator.Behaviour <= EB_Moving && //Behaviour in bounds
 		elevator.Direction >= D_Down && elevator.Direction <= D_Up && //Direction in bounds
 		elevator.Floor > -1 && elevator.Floor < config.N_FLOORS && //Floor in bounds
-		!elevator.Requests[config.N_FLOORS-1][elevio.BT_HallUp] && !elevator.Requests[0][elevio.BT_HallDown] && //no impossible Requests
+		!elevator.Calls[config.N_FLOORS-1][elevio.BT_HallUp] && !elevator.Calls[0][elevio.BT_HallDown] && //no impossible Requests
 		!(elevator.Behaviour == EB_Moving && elevator.Direction == D_Stop) //no Behaviour moving without Direction
 }
 

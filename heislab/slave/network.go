@@ -25,7 +25,7 @@ type ButtonMessage struct {
 Input: The channel to receive messages that should be sent, the ID of the elevator as well as the channel of button presses
 Reasoning: The elevator sends all button presses to the master, and as a button event doesn't need to go by the FSM
 */
-func network_buttonSender(drv_buttons <-chan elevio.ButtonEvent, slaveToMasterOfflineButton chan<- ButtonMessage, ID int) {
+func network_buttonSender(drv_BtnChan <-chan elevio.ButtonEvent, slaveToMasterOfflineBtnChan chan<- ButtonMessage, ID int) {
 	tx := make(chan ButtonMessage)
 	ack := make(chan int)
 	go bcast.Transmitter(config.SlaveBasePort, tx)
@@ -104,7 +104,7 @@ mainLoop:
 	}
 }
 
-func network_broadcast(elevatorUpdate <-chan Elevator, slaveToMasterOfflineElevator chan<- Elevator) {
+func network_broadcast(elevatorUpdateChan <-chan Elevator, slaveToMasterOfflineElevChan chan<- Elevator) {
 	tx := make(chan Elevator)
 	go bcast.Transmitter(config.SlaveBasePort+5, tx)
 	var elevator Elevator
@@ -119,12 +119,12 @@ mainLoop:
 		default:
 		}
 		select {
-		case elevator = <-elevatorUpdate:
+		case elevator = <-elevatorUpdateChan:
 		default:
 		}
 		if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(elevator.ID) {
 			select {
-			case slaveToMasterOfflineElevator <- elevator:
+			case slaveToMasterOfflineElevChan <- elevator:
 				continue mainLoop
 			case <-time.After(time.Millisecond * 100):
 			}
@@ -160,26 +160,26 @@ func network_removeAck(needAck []ButtonMessage, msgID int) []ButtonMessage {
 Input: The channels to send orders and lights to the elevator, the ID of the elevator
 */
 func network_receiver(
-	ordersRx chan<- [config.N_FLOORS][config.N_BUTTONS]bool,
-	masterToSlaveOfflineCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	orderReceiverChan chan<- [config.N_FLOORS][config.N_BUTTONS]bool,
+	masterToSlaveOfflineOrderChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	ID int,
 ) {
-	rx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	receiver := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Receiver(config.SlaveBasePort-1, rx)
 
 	go func() {
-		for msg := range masterToSlaveOfflineCh {
-			rx <- msg
+		for msg := range masterToSlaveOfflineOrderChan {
+			receiver <- msg
 		}
 	}()
 
 	var prevMsg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 
-	for msg := range rx {
+	for msg := range receiver {
 		if msg != prevMsg {
 			fmt.Println("SRx: Received New Message")
 			prevMsg = msg
-			ordersRx <- msg[ID]
+			orderReceiverChan <- msg[ID]
 			//I assume there's an easier way to do this, but I need to loop through to get all active orders before sending out
 			lights := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
