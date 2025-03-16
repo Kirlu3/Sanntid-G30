@@ -3,13 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os/exec"
-	"strconv"
-	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/backup"
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
@@ -33,22 +29,25 @@ func main() {
 	slaveToMasterOfflineButton := make(chan slave.ButtonMessage)
 	slaveToMasterOfflineElevator := make(chan slave.Elevator)
 
-	go slave.Slave(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
+	slave.Slave(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
 	go backup.Backup(*id, masterToSlaveOfflineCh, slaveToMasterOfflineButton, slaveToMasterOfflineElevator)
+	select {}
 
-	// Watchdog
-	ID, _ := strconv.Atoi(*id)
-	alive := make(chan bool)
-	go bcast.Transmitter(config.WatchdogPort+ID, alive)
-	cmd := exec.Command("gnome-terminal", "--", "go", "run", "heislab/watchdog/watchdog.go", *id)
-	err := cmd.Start()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
+	/*
+		// Watchdog
+		ID, _ := strconv.Atoi(*id)
+		alive := make(chan bool)
+		go bcast.Transmitter(config.WatchdogPort+ID, alive)
+		cmd := exec.Command("gnome-terminal", "--", "go", "run", "heislab/watchdog/watchdog.go", *id)
+		err := cmd.Start()
+		if err != nil {
+			fmt.Println(err)
+			panic(err)
+		}
 
-	for {
-		time.After(500 * time.Millisecond)
-		alive <- true
-	}
+		for {
+			time.After(500 * time.Millisecond)
+			alive <- true
+		}
+	*/
 }
