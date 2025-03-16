@@ -67,30 +67,25 @@ func receiveElevatorUpdate(
 	rx := make(chan slave.Elevator)
 	elevators := [config.N_ELEVATORS]slave.Elevator{}
 	go bcast.Receiver(config.SlaveBasePort+5, rx)
-
+	var elevatorUpdate slave.Elevator
 	for {
 		select {
-		case elevatorUpdate := <-rx:
-			if elevators[elevatorUpdate.ID] != elevatorUpdate {
-				elevators[elevatorUpdate.ID] = elevatorUpdate
-				elevatorUpdateCh <- elevatorUpdate
-				if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
-					callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
-				}
-			}
-		case elevatorUpdate := <-slaveToMasterOfflineElevator:
+		case elevatorUpdate = <-rx:
+		case elevatorUpdate = <-slaveToMasterOfflineElevator:
+		}
+
+		if elevators[elevatorUpdate.ID] != elevatorUpdate {
 			elevators[elevatorUpdate.ID] = elevatorUpdate
 			elevatorUpdateCh <- elevatorUpdate
-			if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
-				callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
-			}
+		}
+		if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
+			callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
 		}
 	}
 }
 
 /*
 Inputs: EventMessage and an array of the assignments
-
 Output: UpdateCalls struct
 
 Function transforms the inputs to the right output type that is used for handling updates in the calls.

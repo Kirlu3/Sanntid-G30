@@ -11,7 +11,6 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
-
 // Contains arrays of all HallCalls and CabCalls
 type Calls struct {
 	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
@@ -40,7 +39,7 @@ type UpdateCalls struct {
 // struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool}
 // struct{Calls Calls; AddCall bool}
 
-/* 
+/*
 backupsTx transmitts calls read from the callsToBackupsCh channel to the backups
 */
 func backupsTx(callsToBackupsCh <-chan Calls, initCalls Calls, Id int) {
@@ -61,9 +60,8 @@ func backupsTx(callsToBackupsCh <-chan Calls, initCalls Calls, Id int) {
 
 }
 
-
 /*
-aliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the aliveBackups to the aliveBackupsCh. 
+aliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the aliveBackups to the aliveBackupsCh.
 */
 func aliveBackupsRx(aliveBackupsCh chan<- []string) {
 	backupsUpdateCh := make(chan peers.PeerUpdate)
@@ -85,7 +83,7 @@ func aliveBackupsRx(aliveBackupsCh chan<- []string) {
 /*
 backupAckRx starts goroutines to manage backup synchronization. It looks for other masters, tracks the status of alive backups, and sends call assignments to backups as needed.
 
-This routine handles acknowledgments from alive backups, ensuring that all backups are synchronized with the current set of calls before turning the button lights on. 
+This routine handles acknowledgments from alive backups, ensuring that all backups are synchronized with the current set of calls before turning the button lights on.
 It also manages the reassignment of calls when necessary.
 */
 func backupAckRx(
@@ -123,17 +121,23 @@ mainLoop:
 	for {
 		select {
 		case callsUpdate := <-callsUpdateCh:
+			var newCalls Calls
 			if callsUpdate.AddCall {
-				calls = union(calls, callsUpdate.Calls)
+				newCalls = union(calls, callsUpdate.Calls)
 			} else {
-				calls = removeCalls(calls, callsUpdate.Calls)
+				newCalls = removeCalls(calls, callsUpdate.Calls)
 			}
-			callsToBackupsCh <- calls
-			wantReassignment = true
-			for i := range acksReceived {
-				acksReceived[i] = false
+			if calls != newCalls {
+				calls = newCalls
+				callsToBackupsCh <- calls
+				wantReassignment = true
+
+				for i := range acksReceived {
+					acksReceived[i] = false
+				}
+				acksReceived[Id] = true
 			}
-			acksReceived[Id] = true
+
 		default:
 		}
 

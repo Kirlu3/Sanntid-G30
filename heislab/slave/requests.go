@@ -14,7 +14,7 @@ Else returns false
 */
 func requests_above(elevator Elevator) bool {
 	for f := elevator.Floor + 1; f < config.N_FLOORS; f++ {
-		for btn := 0; btn < config.N_BUTTONS; btn++ {
+		for btn := range config.N_BUTTONS {
 			if elevator.Requests[f][btn] {
 				return true
 			}
@@ -29,8 +29,8 @@ Returns true if there are requests below elevator's current floor
 Else returns false
 */
 func requests_below(elevator Elevator) bool {
-	for f := 0; f < elevator.Floor; f++ {
-		for btn := 0; btn < config.N_BUTTONS; btn++ {
+	for f := range elevator.Floor {
+		for btn := range config.N_BUTTONS {
 			if elevator.Requests[f][btn] {
 				return true
 			}
@@ -45,7 +45,7 @@ Returns true if there are requests at the elevator's current floor
 Else returns false
 */
 func requests_here(elevator Elevator) bool {
-	for btn := 0; btn < config.N_BUTTONS; btn++ {
+	for btn := range config.N_BUTTONS {
 		if elevator.Requests[elevator.Floor][btn] {
 			return true
 		}
@@ -70,7 +70,7 @@ func requests_chooseDirection(elevator Elevator) (ElevatorDirection, ElevatorBeh
 		} else if requests_below(elevator) {
 			return D_Down, EB_Moving
 		} else {
-			return D_Stop, EB_Idle
+			return D_Up, EB_Idle
 		}
 	case D_Down:
 		if requests_below(elevator) {
@@ -80,9 +80,9 @@ func requests_chooseDirection(elevator Elevator) (ElevatorDirection, ElevatorBeh
 		} else if requests_above(elevator) {
 			return D_Up, EB_Moving
 		} else {
-			return D_Stop, EB_Idle
+			return D_Down, EB_Idle
 		}
-	case D_Stop:
+	default:
 		if requests_here(elevator) {
 			return D_Stop, EB_DoorOpen
 		} else if requests_above(elevator) {
