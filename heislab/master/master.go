@@ -9,12 +9,12 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master( 
+func Master(
 	initCalls Calls,
 	Id int,
-	masterToSlaveCalls_offlineChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterBtn_offlineChan <-chan slave.ButtonMessage,
-	slaveToMasterElevState_offlineChan <-chan slave.Elevator,
+	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
+	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 ) {
 	fmt.Println(Id, "entered master mode")
 
@@ -28,18 +28,18 @@ func Master(
 		AliveElevators [config.N_ELEVATORS]bool
 	})
 
-	stateUpdateChan := make(chan slave.Elevator)
-	assignedCallsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	masterTransmitterEnableChan := make(chan bool)
+	slaveStateUpdateChan := make(chan slave.Elevator)
+	callsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	enableMasterTxChan := make(chan bool)
 
-	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), masterTransmitterEnableChan)
+	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
 
-	go backupAckReceiver(callsUpdateChan, callsToAssignChan, initCalls, Id)
-	go assignCalls(stateUpdateChan, callsToAssignChan, assignedCallsToSlaveChan)
+	go backupCoordinator(callsUpdateChan, callsToAssignChan, initCalls, Id)
+	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan)
 
-	go receiveButtonPress(callsUpdateChan, slaveToMasterBtn_offlineChan)
-	go receiveElevatorUpdate(stateUpdateChan, callsUpdateChan, slaveToMasterElevState_offlineChan)
-	go sendMessagesToSlaves(assignedCallsToSlaveChan, masterToSlaveCalls_offlineChan)
+	go buttonPressRx(callsUpdateChan, offlineSlaveBtnToMasterChan)
+	go slaveStateUpdateRx(slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan)
+	go callsToSlavesTx(callsToSlaveChan, offlineCallsToSlaveChan)
 
 	// the program is crashed and restarted when it should go back to backup mode
 	select {}

@@ -36,20 +36,20 @@ func foo() {
 
 // monitor the master and backup update port
 func TestListenBackupMasterUpdate(t *testing.T) {
-	masterUpdateCh := make(chan peers.PeerUpdate)
-	backupUpdateCh := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
-	go peers.Receiver(config.BackupsUpdatePort, backupUpdateCh)
+	masterUpdateRxChan := make(chan peers.PeerUpdate)
+	backupUpdateRxChan := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	go peers.Receiver(config.BackupsUpdatePort, backupUpdateRxChan)
 
 	for {
 		select {
-		case p := <-masterUpdateCh:
+		case p := <-masterUpdateRxChan:
 			fmt.Printf("master update:\n")
 			fmt.Printf("  Masters:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
-		case p := <-backupUpdateCh:
+		case p := <-backupUpdateRxChan:
 			fmt.Printf("backup update:\n")
 			fmt.Printf("  Backups:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
@@ -61,12 +61,12 @@ func TestListenBackupMasterUpdate(t *testing.T) {
 
 // monitor the master update port
 func TestListenMasterUpdate(t *testing.T) {
-	masterUpdateCh := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
+	masterUpdateRxChan := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 
 	for {
 		select {
-		case p := <-masterUpdateCh:
+		case p := <-masterUpdateRxChan:
 			fmt.Printf("master update:\n")
 			fmt.Printf("  Masters:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
@@ -78,12 +78,12 @@ func TestListenMasterUpdate(t *testing.T) {
 
 // monitor the backup update port
 func TestListenBackupUpdate(t *testing.T) {
-	backupUpdateCh := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.BackupsUpdatePort, backupUpdateCh)
+	backupUpdateRxChan := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.BackupsUpdatePort, backupUpdateRxChan)
 
 	for {
 		select {
-		case p := <-backupUpdateCh:
+		case p := <-backupUpdateRxChan:
 			fmt.Printf("backup update:\n")
 			fmt.Printf("  Backups:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
@@ -95,12 +95,12 @@ func TestListenBackupUpdate(t *testing.T) {
 
 func TestPeersEnableTx(t *testing.T) {
 	id := "2"
-	masterUpdateCh := make(chan peers.PeerUpdate)
-	masterTxEnable := make(chan bool)
+	masterUpdateRxChan := make(chan peers.PeerUpdate)
+	enableMasterTxChan := make(chan bool)
 	go func() {
 		for {
 			select {
-			case p := <-masterUpdateCh:
+			case p := <-masterUpdateRxChan:
 				fmt.Printf("master update:\n")
 				fmt.Printf("  Masters:    %q\n", p.Peers)
 				fmt.Printf("  New:      %q\n", p.New)
@@ -110,18 +110,18 @@ func TestPeersEnableTx(t *testing.T) {
 			}
 		}
 	}()
-	go peers.Transmitter(config.MasterUpdatePort, id, masterTxEnable)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateCh)
+	go peers.Transmitter(config.MasterUpdatePort, id, enableMasterTxChan)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 	// time.Sleep(time.Millisecond*10)
 	// masterTxEnable <- false
 
-	masterTxEnable2 := make(chan bool)
-	go peers.Transmitter(config.MasterUpdatePort, "3", masterTxEnable2)
-	en := false
+	enableMasterTxChan2 := make(chan bool)
+	go peers.Transmitter(config.MasterUpdatePort, "3", enableMasterTxChan2)
+	enable := false
 	for {
 		time.Sleep(time.Millisecond * 2000)
-		en = !en
-		masterTxEnable2 <- en
+		enable = !enable
+		enableMasterTxChan2 <- enable
 	}
 
 	// time.Sleep(time.Second*30)
@@ -177,38 +177,37 @@ func TestCompareStructs(t *testing.T) {
 	fmt.Println(calls1 == calls2)
 }
 
-
 func TestChans(t *testing.T) {
-    backupCallsCh := make(chan struct {
-        Calls master.Calls
-        Id   int
-    })
+	backupCallsChan := make(chan struct {
+		Calls master.Calls
+		Id    int
+	})
 
-	assignCallsCh := make(chan struct {
-        Calls master.Calls
-        AliveElevators [config.N_ELEVATORS]bool
-    })
+	assignCallsChan := make(chan struct {
+		Calls          master.Calls
+		AliveElevators [config.N_ELEVATORS]bool
+	})
 
-	updateCallsCh := make(chan struct {
-        Calls master.Calls
-        AddCall bool
-    })
+	updateCallsChan := make(chan struct {
+		Calls   master.Calls
+		AddCall bool
+	})
 
-	// aCh := make(chan master.UpdateCalls)
+	// aChan := make(chan master.UpdateCalls)
 	func(chan struct {
-        Calls master.Calls
-        AliveElevators [config.N_ELEVATORS]bool
-    }) {
+		Calls          master.Calls
+		AliveElevators [config.N_ELEVATORS]bool
+	}) {
 		return
-	}(assignCallsCh)
+	}(assignCallsChan)
 	var a master.UpdateCalls
-	updateCallsCh <- a
+	updateCallsChan <- a
 
 	var calls master.Calls
 	id := 1
 	var s master.BackupCalls
 
-	backupCallsCh <- master.BackupCalls{Calls: calls, Id: id}
-	backupCallsCh <- s
+	backupCallsChan <- master.BackupCalls{Calls: calls, Id: id}
+	backupCallsChan <- s
 
 }

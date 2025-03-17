@@ -30,17 +30,17 @@ func main() {
 	elevio.Init(serverAddress, config.N_FLOORS)
 
 	// Channels for offline communication
-	masterToSlaveCalls_offlineChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	slaveToMasterBtn_offlineChan := make(chan slave.ButtonMessage)
-	slaveToMasterElevState_offlineChan := make(chan slave.Elevator)
+	offlineCallsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	offlineSlaveBtnToMasterChan := make(chan slave.ButtonMessage)
+	offlineSlaveStateToMasterChan := make(chan slave.Elevator)
 
-	go slave.Slave(*id, masterToSlaveCalls_offlineChan, slaveToMasterBtn_offlineChan, slaveToMasterElevState_offlineChan)
-	go backup.Backup(*id, masterToSlaveCalls_offlineChan, slaveToMasterBtn_offlineChan, slaveToMasterElevState_offlineChan)
+	go slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan) // TODO heter de det samme inne i slave funksjonen?? 
+	go backup.Backup(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 
 	// Watchdog
 	ID, _ := strconv.Atoi(*id)
-	programAliveChan := make(chan bool)
-	go bcast.Transmitter(config.WatchdogPort+ID, programAliveChan)
+	programAliveTxChan := make(chan bool)
+	go bcast.Transmitter(config.WatchdogPort+ID, programAliveTxChan)
 	cmd := exec.Command("gnome-terminal", "--", "go", "run", "heislab/watchdog/watchdog.go", *id)
 	err := cmd.Start()
 	if err != nil {
@@ -50,6 +50,6 @@ func main() {
 
 	for {
 		time.After(500 * time.Millisecond)
-		programAliveChan <- true
+		programAliveTxChan <- true
 	}
 }

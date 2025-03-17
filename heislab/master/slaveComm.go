@@ -12,77 +12,77 @@ import (
 )
 
 /*
-Listens to button presses from the slaves
-Acknowledges the button press
-Sends an update to the assigner for the button press
+buttonPressRx receives button presses from the slaves, acknowledges them and sends a callsUpdate to the backupCoordinator, which forwards this information to the backups and ensures reassignments of the current calls.
 */
-func receiveButtonPress(
-	callsUpdateCh chan<- struct {
+func buttonPressRx(
+	callsUpdateChan chan<- struct {
 		Calls   Calls
 		AddCall bool
 	},
-	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
+	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
 ) {
-	//make a channel to receive buttons
-	rx := make(chan slave.ButtonMessage)
-	go bcast.Receiver(config.SlaveBasePort, rx)
-	//ack channel to send acknowledgments
-	ack := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort+10, ack)
+	//channel to receive button presses
+	btnPressRxChan := make(chan slave.ButtonMessage)
+	go bcast.Receiver(config.SlaveBasePort, btnPressRxChan)
 
-	var msgID []int
+	//ack channel to send acknowledgments
+	ackTxChan := make(chan int)
+	go bcast.Transmitter(config.SlaveBasePort+10, ackTxChan)
+
+	var msgIDs []int
 	for {
 		select {
-		case newBtn := <-rx:
+		case newBtn := <-btnPressRxChan:
 			println("ST: Received button press")
-			ack <- newBtn.MsgID
+			ackTxChan <- newBtn.MsgID
 			fmt.Println("ST: Sent Ack", newBtn.MsgID)
-			if !slices.Contains(msgID, newBtn.MsgID) {
-				msgID = append(msgID, newBtn.MsgID)
-				// if we've stored too many IDs, remove the oldest one. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
-				if len(msgID) > 20 {
-					msgID = msgID[1:]
+			if !slices.Contains(msgIDs, newBtn.MsgID) {
+				msgIDs = append(msgIDs, newBtn.MsgID)
+				// remove the oldest messageID if we've stored too many. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+				if len(msgIDs) > 20 {
+					msgIDs = msgIDs[1:]
 				}
-				callsUpdateCh <- makeAddCallsUpdate(newBtn)
+				callsUpdateChan <- makeAddCallsUpdate(newBtn)
 			}
-		case newBtn := <-slaveToMasterOfflineButton:
+		case newBtn := <-offlineSlaveBtnToMasterChan:
 			println("ST: Received button press offline")
-			callsUpdateCh <- makeAddCallsUpdate(newBtn)
+			callsUpdateChan <- makeAddCallsUpdate(newBtn)
 		}
 	}
 }
 
 /*
-Listens to UDP broadcasts from the slaves
+slaveStateUpdateRx listens to UDP broadcasts from the slaves, which contains their state.
+Dependent on the state of the slave, the routine sends a removeCallsUpdate to the backupCoordinator, which forwards this information to the backups and ensures reassignments of the current calls.
 */
-func receiveElevatorUpdate(
-	elevatorUpdateCh chan<- slave.Elevator,
-	callsUpdateCh chan<- struct {
+func slaveStateUpdateRx(
+	slaveStateUpdateChan chan<- slave.Elevator,
+	callsUpdateChan chan<- struct {
 		Calls   Calls
 		AddCall bool
 	},
-	slaveToMasterOfflineElevator <-chan slave.Elevator,
+	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 
 ) {
-	rx := make(chan slave.Elevator)
+	slaveStateUpdateRxChan := make(chan slave.Elevator)
 	elevators := [config.N_ELEVATORS]slave.Elevator{}
-	go bcast.Receiver(config.SlaveBasePort+5, rx)
+	go bcast.Receiver(config.SlaveBasePort+5, slaveStateUpdateRxChan)
 
 	for {
 		select {
-		case elevatorUpdate := <-rx:
-			if elevators[elevatorUpdate.ID] != elevatorUpdate {
-				elevators[elevatorUpdate.ID] = elevatorUpdate
-				elevatorUpdateCh <- elevatorUpdate
-				if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
-					callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
+		case slaveStateUpdate := <-slaveStateUpdateRxChan:
+			if elevators[slaveStateUpdate.ID] != slaveStateUpdate {
+				elevators[slaveStateUpdate.ID] = slaveStateUpdate
+				slaveStateUpdateChan <- slaveStateUpdate
+				if slaveStateUpdate.Behaviour == slave.EB_DoorOpen {
+					callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
 				}
 			}
-		case elevatorUpdate := <-slaveToMasterOfflineElevator:
-			elevators[elevatorUpdate.ID] = elevatorUpdate
-			elevatorUpdateCh <- elevatorUpdate
-			if elevatorUpdate.Behaviour == slave.EB_DoorOpen {
-				callsUpdateCh <- makeRemoveCallsUpdate(elevatorUpdate)
+		case slaveStateUpdate := <-offlineSlaveStateToMasterChan:
+			elevators[slaveStateUpdate.ID] = slaveStateUpdate
+			slaveStateUpdateChan <- slaveStateUpdate
+			if slaveStateUpdate.Behaviour == slave.EB_DoorOpen {
+				callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
 			}
 		}
 	}
@@ -111,41 +111,42 @@ func makeRemoveCallsUpdate(elevator slave.Elevator) UpdateCalls {
 }
 
 /*
-Input: EventMessage
+Input: ButtonMessage
 
 Output: UpdateCalls
 
-Function transforms the input to the right output type that is used for handling updates in the calls.
+Function transforms the input to the right output type that is used for handling updates of the calls.
 */
-func makeAddCallsUpdate(newBtn slave.ButtonMessage) UpdateCalls {
+func makeAddCallsUpdate(btnMessage slave.ButtonMessage) UpdateCalls {
 	var callsUpdate UpdateCalls
 	callsUpdate.AddCall = true
-	if newBtn.BtnPress.Button == elevio.BT_Cab {
-		callsUpdate.Calls.CabCalls[newBtn.ElevID][newBtn.BtnPress.Floor] = true
+	if btnMessage.BtnPress.Button == elevio.BT_Cab {
+		callsUpdate.Calls.CabCalls[btnMessage.ElevID][btnMessage.BtnPress.Floor] = true
 	} else {
-		callsUpdate.Calls.HallCalls[newBtn.BtnPress.Floor][newBtn.BtnPress.Button] = true
+		callsUpdate.Calls.HallCalls[btnMessage.BtnPress.Floor][btnMessage.BtnPress.Button] = true
 	}
 	return callsUpdate
 }
 
 /*
-Handles transmitting the assignments received on the toSlaveCh channel to the slaves on the SlaveBasePort-1 port.
+callsToSlaveTx transmitts the calls received on callsToSlaveChan to the slaves on the SlaveBasePort-1 port.
 */
-func sendMessagesToSlaves(toSlaveCh chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
-	tx := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	go bcast.Transmitter(config.SlaveBasePort-1, tx)
+func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 
-	var msg [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	callsToSlavesTxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	go bcast.Transmitter(config.SlaveBasePort-1, callsToSlavesTxChan)
+
+	var callsToSlave [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {
 		select {
-		case msg = <-toSlaveCh:
-			fmt.Println("ST: New orders sent")
-			fmt.Println(msg)
-			tx <- msg
-			masterToSlaveOfflineCh <- msg
+		case callsToSlave = <-callsToSlaveChan:
+			fmt.Println("ST: Newly assigned calls sent")
+			fmt.Println(callsToSlave)
+			callsToSlavesTxChan <- callsToSlave
+			offlineCallsToSlaveChan <- callsToSlave
 		default:
-			tx <- msg
+			callsToSlavesTxChan <- callsToSlave
 		}
 		time.Sleep(time.Millisecond * time.Duration(config.BroadcastMessagePeriodMs))
 	}

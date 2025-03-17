@@ -16,36 +16,36 @@ import (
 /*
 	The entire backup system run in one goroutine.
 
-The routine listens to the master's UDP broadcasts and responds with the updated worldview.
-If the backup loses connection with the master, it will transition to the master phase with its current worldview.
+The routine listens to the master's UDP broadcasts and responds with the updated calls.
+If the backup loses connection with the master, it will transition to the master phase with its current list of calls.
 A large portion of the backup code are pretty prints of updates to peer lists.
 */
 func Backup(
 	id string,
-	masterToSlaveCalls_offlineChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterBtn_offlineChan <-chan slave.ButtonMessage,
-	slaveToMasterElevState_offlineChan <-chan slave.Elevator,
+	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
+	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 ) {
-	masterUpdateChan := make(chan peers.PeerUpdate)
-	backupsUpdateChan := make(chan peers.PeerUpdate)
-	backupsTransmitterEnableChan := make(chan bool)
-	backupsCallsTransmitterChan := make(chan struct {
+	masterUpdateRxChan := make(chan peers.PeerUpdate)
+	backupsUpdateRxChan := make(chan peers.PeerUpdate)
+	enableBackupTxChan := make(chan bool)
+	backupCallsTxChan := make(chan struct {
 		Calls master.Calls
 		Id    int
 	})
-	mastersCallsReceiverChan := make(chan struct {
+	masterCallsRxChan := make(chan struct {
 		Calls master.Calls
 		Id    int
 	})
 
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateChan)
+	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 
-	go peers.Transmitter(config.BackupsUpdatePort, id, backupsTransmitterEnableChan)
-	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateChan)
+	go peers.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
+	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateRxChan)
 
-	go bcast.Transmitter(config.BackupsCallsPort, backupsCallsTransmitterChan)
+	go bcast.Transmitter(config.BackupsCallsPort, backupCallsTxChan)
 
-	go bcast.Receiver(config.MasterCallsPort, mastersCallsReceiverChan)
+	go bcast.Receiver(config.MasterCallsPort, masterCallsRxChan)
 
 	fmt.Println("Backup Started: ", id)
 	var backupsUpdate peers.PeerUpdate
@@ -61,20 +61,20 @@ func Backup(
 
 	for {
 		select {
-		case c := <-mastersCallsReceiverChan:
+		case c := <-masterCallsRxChan:
 			if len(masterUpdate.Peers) > 0 && strconv.Itoa(c.Id) == masterUpdate.Peers[0] {
 				calls = c.Calls
 			} else {
 				fmt.Println("received a message from not the master")
 			}
 
-		case backupsUpdate = <-backupsUpdateChan:
+		case backupsUpdate = <-backupsUpdateRxChan:
 			fmt.Printf("Backups update:\n")
 			fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
 			fmt.Printf("  New:        %q\n", backupsUpdate.New)
 			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
-		case masterUpdate = <- masterUpdateChan:
+		case masterUpdate = <- masterUpdateRxChan:
 			fmt.Printf("Master update:\n")
 			fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
@@ -83,7 +83,7 @@ func Backup(
 		case <-time.After(time.Second * 2):
 			fmt.Println("backup select blocked for 2 seconds. this should only happen if there are no masters, maybe this is too short?")
 		}
-		backupsCallsTransmitterChan <- master.BackupCalls{Calls: calls, Id: idInt}
+		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
 		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {
 			select {
 			case <-masterUpdateCooldownTimer.C:
@@ -92,8 +92,8 @@ func Backup(
 				return false
 			}
 		}() {
-			backupsTransmitterEnableChan <- false
-			master.Master(calls, idInt,  masterToSlaveCalls_offlineChan, slaveToMasterBtn_offlineChan, slaveToMasterElevState_offlineChan)
+			enableBackupTxChan <- false
+			master.Master(calls, idInt,  offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 			panic("the master phase should never return")
 		}
 	}

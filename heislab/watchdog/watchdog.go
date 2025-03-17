@@ -18,12 +18,12 @@ const (
 func main() {
 	id := os.Args[1:][0]
 	ID, _ := strconv.Atoi(id)
-	alive := make(chan bool)
+	aliveRxChan := make(chan bool)
 
-	go bcast.Receiver(WatchdogPort+ID, alive)
+	go bcast.Receiver(WatchdogPort+ID, aliveRxChan)
 	for {
 		select {
-		case <-alive:
+		case <-aliveRxChan:
 			fmt.Println("Watchdog received alive signal")
 		case <-time.After(RestartTimeMs * time.Millisecond):
 			goto restart

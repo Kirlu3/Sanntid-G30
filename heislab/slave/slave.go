@@ -11,9 +11,9 @@ import (
 // Initialization and main loop of the slave module
 func Slave(
 	id string,
-	masterToSlaveCalls_offlineChann <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterBtn_offlineCha chan<- ButtonMessage,
-	slaveToMasterElevState_offlineChan chan<- Elevator,
+	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	offlineSlaveBtnToMasterChan chan<- ButtonMessage,
+	offlineSlaveStateToMasterChan chan<- Elevator,
 ) {
 
 	ID, _ := strconv.Atoi(id)
@@ -23,15 +23,16 @@ func Slave(
 	drv_NewFloorChan := make(chan int)
 	drv_ObstrChan := make(chan bool)
 	drv_StopChan := make(chan bool)
-	startTimerChan := make(chan int)
 
-	elevatorUpdateChan := make(chan Elevator, 2)
-	callsReceiverChan := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
+	slaveStateToMasterChan := make(chan Elevator, 2)
+	callsFromMasterChan := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
+
+	timerDurationChan := make(chan int)
 
 	//initialize timer
-	var timerEnd *time.Timer = time.NewTimer(0)
-	<-timerEnd.C
-	go timer(startTimerChan, timerEnd)
+	var timer *time.Timer = time.NewTimer(0)
+	<-timer.C
+	go resetTimer(timerDurationChan, timer)
 
 	//initialize sensors
 	go elevio.PollButtons(drv_BtnChan)
@@ -40,10 +41,10 @@ func Slave(
 	go elevio.PollStopButton(drv_StopChan)
 
 	//initialize network
-	go network_buttonSender(drv_BtnChan, slaveToMasterOfflineBtnChan, ID)
-	go network_broadcast(elevatorUpdateChan, slaveToMasterOfflineElevChan)
-	go network_receiver(callsReceiverChan, masterToSlaveOfflineCallsChan, ID)
+	go buttonPressTx(drv_BtnChan, offlineSlaveBtnToMasterChan, ID)
+	go slaveStateTx(slaveStateToMasterChan, offlineSlaveStateToMasterChan)
+	go callsFromMasterRx(callsFromMasterChan, offlineCallsToSlaveChan, ID)
 
 	//initialize fsm
-	go fsm(ID, elevatorUpdateChan, callsReceiverChan, drv_NewFloorChan, drv_ObstrChan, drv_StopChan, startTimerChan, timerEnd)
+	go fsm(ID, slaveStateToMasterChan, callsFromMasterChan, drv_NewFloorChan, drv_ObstrChan, drv_StopChan, timerDurationChan, timer)
 }

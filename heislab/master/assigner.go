@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
@@ -36,19 +37,19 @@ var directionMap = map[slave.ElevatorDirection]string{
 }
 
 /*
-stateUpdateChan receives updates about the state of the elevators
+slaveStateUpdateChan receives updates about the state of the elevators
 
 callsToAssignChan receives the calls that should be assigned and a list over the alive elevators
 
-assignedCallsToSlaveChan sends the assigned orders to the function that handles sending them to the slaves
+callsToSlaveChan sends the assigned orders to the function that handles sending them to the slaves
 */
-func assignCalls(
-	stateUpdateChan <-chan slave.Elevator,
+func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
+	slaveStateUpdateChan <-chan slave.Elevator,
 	callsToAssignChan <-chan struct {
 		Calls          Calls
 		AliveElevators [config.N_ELEVATORS]bool
 	},
-	assignedCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	callsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 ) {
 
 	elevators := [config.N_ELEVATORS]slave.Elevator{} // consider waiting for state init
@@ -59,14 +60,14 @@ func assignCalls(
 	}
 	for {
 		select {
-		case stateUpdate := <-stateUpdateChan:
+		case stateUpdate := <-slaveStateUpdateChan:
 			prevElevator := elevators[stateUpdate.ID]
 			elevators[stateUpdate.ID] = stateUpdate
 
 			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
 				calls.AliveElevators[stateUpdate.ID] = !stateUpdate.Stuck // acts as if the elevator is dead if it is stuck
 				assignedCalls := assign(elevators, calls)
-				assignedCallsToSlaveChan <- assignedCalls
+				callsToSlaveChan <- assignedCalls
 			}
 			fmt.Println("As:Received new states")
 
@@ -77,7 +78,7 @@ func assignCalls(
 				fmt.Printf("As: state: %v\n", elevators)
 				assignedCalls := assign(elevators, calls)
 				//fmt.Printf("assigned:%v\n", assignments)
-				assignedCallsToSlaveChan <- assignedCalls
+				callsToSlaveChan <- assignedCalls
 				fmt.Println("As:Succeded")
 			default:
 			}
@@ -87,9 +88,9 @@ func assignCalls(
 }
 
 /*
-Input: the masters WorldView
+Input: the masters view of the elevator states and the calls that should be assigned
 
-Output: an array containing which calls go to which elevator
+Output: an array containing what calls go to which elevator
 */
 func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	hraExecutable := ""
@@ -120,7 +121,7 @@ func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCa
 	// make sure cab calls are not overwritten if elevator is stuck or not alive
 	for elev := range config.N_ELEVATORS {
 		for floor := range config.N_FLOORS {
-			output[elev][floor][2] = callsToAssign.Calls.CabCalls[elev][floor]
+			output[elev][floor][elevio.BT_Cab] = callsToAssign.Calls.CabCalls[elev][floor]
 		}
 	}
 
@@ -169,7 +170,7 @@ Output: an array of the assigned calls
 */
 func transformOutput(outputJsonFormat []byte, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
-	tempOutput := new(map[string][config.N_FLOORS][2]bool)
+	tempOutput := new(map[string][config.N_FLOORS][config.N_BUTTONS-1]bool)
 
 	errUnmarshal := json.Unmarshal(outputJsonFormat, &tempOutput)
 
@@ -188,7 +189,7 @@ func transformOutput(outputJsonFormat []byte, callsToAssign AssignCalls) [config
 
 		for floor := range config.N_FLOORS {
 			// appending cab calls from worldview of each floor to the output
-			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][0], tempElevatorOrders[floor][1], callsToAssign.Calls.CabCalls[elevatorId][floor]}
+			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][elevio.BT_HallUp], tempElevatorOrders[floor][elevio.BT_HallDown], callsToAssign.Calls.CabCalls[elevatorId][floor]}
 		}
 
 		output[elevatorId] = elevatorOrders
