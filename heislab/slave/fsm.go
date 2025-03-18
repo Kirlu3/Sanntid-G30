@@ -126,11 +126,12 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 						elevator.Direction = D_Down
 					}
 				}
-
 				elevator = clearCallsAtCurrentFloor(elevator)
 				elevator.Behaviour = EB_DoorOpen
 			} else {
-				elevator.Behaviour = EB_Idle
+				direction, behaviour := chooseElevatorDirection(elevator)
+				elevator.Direction = direction
+				elevator.Behaviour = behaviour
 			}
 		}
 	}
