@@ -85,20 +85,6 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 	}
 }
 
-func assignAllCallsToMaster(calls Calls, id int) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
-	var assignedCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	for floor := range config.N_FLOORS {
-		assignedCalls[id][floor][elevio.BT_HallDown] = calls.HallCalls[floor][elevio.BT_HallDown]
-		assignedCalls[id][floor][elevio.BT_HallUp] = calls.HallCalls[floor][elevio.BT_HallUp]
-	}
-	for elevator := range config.N_ELEVATORS {
-		for floor := range config.N_FLOORS {
-			assignedCalls[elevator][floor][elevio.BT_Cab] = calls.CabCalls[elevator][floor]
-		}
-	}
-	return assignedCalls
-}
-
 /*
 Input: the masters view of the elevator states and the calls that should be assigned
 
