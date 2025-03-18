@@ -78,7 +78,7 @@ func Backup(id string) master.Calls {
 			fmt.Println("No new messages for two seconds, no master available")
 		}
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
-		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id {
+		if len(masterUpdate.Peers) == 0 && (len(backupsUpdate.Peers) == 0 || slices.Min(backupsUpdate.Peers) == id) {
 			select {
 			case <-masterUpgradeCooldownTimer.C:
 				enableBackupTxChan <- false
