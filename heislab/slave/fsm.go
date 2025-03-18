@@ -174,7 +174,7 @@ func fsm_onTimerEnd(elevator Elevator) Elevator {
 	case EB_DoorOpen:
 		fmt.Println("FSM:onTimerEnd DO")
 
-		if !elevator.Stuck {
+		if !elevator.Obstruction {
 			direction, behaviour := chooseElevatorDirection(elevator)
 			elevator.Direction = direction
 			elevator.Behaviour = behaviour
