@@ -67,8 +67,7 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 			prevElevator := elevators[stateUpdate.ID]
 			elevators[stateUpdate.ID] = stateUpdate
 
-			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
-				calls.AliveElevators[stateUpdate.ID] = !stateUpdate.Stuck // acts as if the elevator is dead if it is stuck
+			if prevElevator.Stuck != stateUpdate.Stuck {
 				shouldReassign = true
 			}
 			fmt.Println("As:Received new states")
@@ -79,6 +78,11 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 		}
 		if shouldReassign {
 			var assignedCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+			for i, elevator := range elevators {
+				if elevator.Stuck {
+					calls.AliveElevators[i] = false // acts as if the elevator is dead if it is stuck
+				}
+			}
 			if slices.Contains(calls.AliveElevators[:], true) {
 				assignedCalls = assign(elevators, calls)
 			} else {
