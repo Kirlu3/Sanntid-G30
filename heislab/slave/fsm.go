@@ -108,7 +108,9 @@ Input: the elevator and the new floor
 Returns: the elevator with the floor updated
 */
 func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
-	elevator.Stuck = false //if the elevator arrives at a floor, it is not stuck
+	if !elevator.Obstruction {
+		elevator.Stuck = false //if the elevator arrives at a floor, it is not stuck
+	}
 	fmt.Println("onFloorArrival")
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
@@ -144,6 +146,7 @@ Returns: the elevator object with updated state depending on obstruction.
 */
 func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	fmt.Println("onObstruction")
+	elevator.Obstruction = obstruction
 	elevator.Stuck = obstruction
 	return elevator
 }

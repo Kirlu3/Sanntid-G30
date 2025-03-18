@@ -29,12 +29,13 @@ const (
 )
 
 type Elevator struct {
-	ID        int
-	Floor     int
-	Direction ElevatorDirection
-	Calls     [config.N_FLOORS][config.N_BUTTONS]bool
-	Behaviour ElevatorBehaviour
-	Stuck     bool
+	ID          int
+	Floor       int
+	Direction   ElevatorDirection
+	Calls       [config.N_FLOORS][config.N_BUTTONS]bool
+	Behaviour   ElevatorBehaviour
+	Stuck       bool
+	Obstruction bool
 }
 
 /*
