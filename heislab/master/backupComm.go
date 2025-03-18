@@ -53,7 +53,7 @@ func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) 
 		select {
 		case calls = <-callsToBackupsChan:
 			callsToBackupTransmitter <- BackupCalls{Calls: calls, Id: Id}
-		case <-time.After(config.MasterMessagePeriodSeconds):
+		case <-time.After(config.MasterMessagePeriodMs * time.Millisecond):
 			callsToBackupTransmitter <- BackupCalls{Calls: calls, Id: Id}
 		}
 	}

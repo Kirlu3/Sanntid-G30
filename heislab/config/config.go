@@ -15,11 +15,11 @@ const (
 	BackupsCallsPort  = 30049
 	SlaveBasePort     = 40000
 
-	BackupMessagePeriodSeconds = 1
-	MasterMessagePeriodSeconds = 1
+	BackupMessagePeriodMs = 1
+	MasterMessagePeriodMs = 1
 
-	BroadcastMessagePeriodMs = 100
+	BroadcastMessagePeriodMs = 10
 
-	ResendPeriodMs  = 100
+	ResendPeriodMs  = 10
 	ResendTimeoutMs = 2000
 )

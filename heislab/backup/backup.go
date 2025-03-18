@@ -51,7 +51,7 @@ func Backup(id string) master.Calls {
 		panic("backup received invalid id")
 	}
 
-	masterUpgradeCooldownTimer := time.NewTimer(1 * time.Second)
+	masterUpgradeCooldownTimer := time.NewTimer(5 * time.Second)
 
 	for {
 		select {
@@ -74,8 +74,7 @@ func Backup(id string) master.Calls {
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
-		case <-time.After(time.Second * 2):
-			fmt.Println("No new messages for two seconds, no master available")
+		case <-time.After(time.Millisecond * config.BackupMessagePeriodMs):
 		}
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
 		if len(masterUpdate.Alive) == 0 && (len(backupsUpdate.Alive) == 0 || slices.Min(backupsUpdate.Alive) == id) {
