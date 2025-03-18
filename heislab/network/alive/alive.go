@@ -35,7 +35,7 @@ func Transmitter(port int, id string, transmitEnable <-chan bool) {
 	}
 }
 
-func Receiver(port int, peerUpdateCh chan<- AliveUpdate) {
+func Receiver(port int, aliveUpdateCh chan<- AliveUpdate) {
 
 	var buf [1024]byte
 	var p AliveUpdate
@@ -82,7 +82,7 @@ func Receiver(port int, peerUpdateCh chan<- AliveUpdate) {
 
 			sort.Strings(p.Alive)
 			sort.Strings(p.Lost)
-			peerUpdateCh <- p
+			aliveUpdateCh <- p
 		}
 	}
 }
