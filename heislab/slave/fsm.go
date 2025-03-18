@@ -112,8 +112,19 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
 	case EB_Moving:
-		if shouldElevatorStop(elevator) { //This causes the door to open on init, probably fine?
+		if shouldElevatorStop(elevator) {
+
 			if callsAtCurrentFloor(elevator) {
+				newElevator := clearCallsAtCurrentFloor(elevator)
+				if newElevator.Calls == elevator.Calls {
+					switch elevator.Direction {
+					case D_Down:
+						elevator.Direction = D_Up
+					case D_Up:
+						elevator.Direction = D_Down
+					}
+				}
+
 				elevator = clearCallsAtCurrentFloor(elevator)
 				elevator.Behaviour = EB_DoorOpen
 			} else {

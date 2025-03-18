@@ -7,6 +7,8 @@ consider renaming peers to alive
 
 consider reassigning every time a state update happens (why not?)
 
+consider changing either everything, or everything in fsm to include or not include prefixes
+
 What is the purpose of assign all calls to master? For the case of no alive elevators? consider just setting master elevator to alive and then assigning in the normal way
 
 
