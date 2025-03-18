@@ -68,22 +68,19 @@ func slaveStateUpdateRx(
 	elevators := [config.N_ELEVATORS]slave.Elevator{}
 	go bcast.Receiver(config.SlaveBasePort+5, slaveStateUpdateRxChan)
 
+	var slaveStateUpdate slave.Elevator
 	for {
 		select {
-		case slaveStateUpdate := <-slaveStateUpdateRxChan:
-			if elevators[slaveStateUpdate.ID] != slaveStateUpdate {
-				elevators[slaveStateUpdate.ID] = slaveStateUpdate
-				slaveStateUpdateChan <- slaveStateUpdate
-				if slaveStateUpdate.Behaviour == slave.EB_DoorOpen {
-					callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
-				}
-			}
-		case slaveStateUpdate := <-offlineSlaveStateToMasterChan:
+		case slaveStateUpdate = <-slaveStateUpdateRxChan:
+		case slaveStateUpdate = <-offlineSlaveStateToMasterChan:
+		}
+
+		if elevators[slaveStateUpdate.ID] != slaveStateUpdate {
 			elevators[slaveStateUpdate.ID] = slaveStateUpdate
 			slaveStateUpdateChan <- slaveStateUpdate
-			if slaveStateUpdate.Behaviour == slave.EB_DoorOpen {
-				callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
-			}
+		}
+		if slaveStateUpdate.Behaviour == slave.EB_DoorOpen {
+			callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
 		}
 	}
 }

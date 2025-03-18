@@ -3,13 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os/exec"
-	"strconv"
-	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/backup"
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
@@ -34,22 +30,8 @@ func main() {
 	offlineSlaveBtnToMasterChan := make(chan slave.ButtonMessage)
 	offlineSlaveStateToMasterChan := make(chan slave.Elevator)
 
-	go slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan) // TODO heter de det samme inne i slave funksjonen?? 
+	slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 	go backup.Backup(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 
-	// Watchdog
-	ID, _ := strconv.Atoi(*id)
-	programAliveTxChan := make(chan bool)
-	go bcast.Transmitter(config.WatchdogPort+ID, programAliveTxChan)
-	cmd := exec.Command("gnome-terminal", "--", "go", "run", "heislab/watchdog/watchdog.go", *id)
-	err := cmd.Start()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
-
-	for {
-		time.After(500 * time.Millisecond)
-		programAliveTxChan <- true
-	}
+	select {}
 }

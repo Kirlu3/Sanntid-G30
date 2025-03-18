@@ -122,17 +122,24 @@ mainLoop:
 	for {
 		select {
 		case callsUpdate := <-callsUpdateChan:
+			var newCalls Calls
 			if callsUpdate.AddCall {
-				calls = union(calls, callsUpdate.Calls)
+				newCalls = union(calls, callsUpdate.Calls)
 			} else {
-				calls = removeCalls(calls, callsUpdate.Calls)
+				newCalls = removeCalls(calls, callsUpdate.Calls)
 			}
-			callsToBackupsTxChan <- calls
-			wantReassignment = true
-			for i := range acksReceived {
-				acksReceived[i] = false
+
+			if calls != newCalls {
+				calls = newCalls
+				callsToBackupsTxChan <- calls
+				wantReassignment = true
+
+				for i := range acksReceived {
+					acksReceived[i] = false
+				}
+				acksReceived[Id] = true
 			}
-			acksReceived[Id] = true
+
 		default:
 		}
 
@@ -152,7 +159,7 @@ mainLoop:
 		}
 
 		select {
-		case otherMasterUpdate := <- otherMasterUpdateChan:
+		case otherMasterUpdate := <-otherMasterUpdateChan:
 			if otherMasterUpdate.Id < Id && isCallsSubset(calls, otherMasterUpdate.Calls) {
 				fmt.Println("find a better way to restart the program")
 				os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42

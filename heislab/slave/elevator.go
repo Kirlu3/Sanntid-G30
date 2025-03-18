@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	doorOpenDuration int = 3
-	timeBetweenFloors  int = 5
+	doorOpenDuration  int = 3
+	timeBetweenFloors int = 5
 )
 
 type ElevatorBehaviour int
@@ -32,7 +32,7 @@ type Elevator struct {
 	ID        int
 	Floor     int
 	Direction ElevatorDirection
-	Calls  [config.N_FLOORS][config.N_BUTTONS]bool
+	Calls     [config.N_FLOORS][config.N_BUTTONS]bool
 	Behaviour ElevatorBehaviour
 	Stuck     bool
 }
@@ -53,8 +53,8 @@ func validElevator(elevator Elevator) bool {
 }
 
 /*
-	Updates the state of elevator with the state of newElevator if the state is valid. 
-	The function also notifies the master if the elevators stuck status has changed, 
+	Updates the state of elevator with the state of newElevator if the state is valid.
+	The function also notifies the master if the elevators stuck status has changed,
 	and activates the IO of the elevator
 
 Input: The new elevator struct, the old elevator struct, the channel to send messages to the master, the channel to start the timer
@@ -76,7 +76,7 @@ func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMa
 	Interfaces with the elevator hardware to update the lights and motor direction
 	If the door opens or the elevator starts moving, the corresponding timer is started
 
-Input: The elevator with updated state and timerDurationChan that starts a timer with the specified duration in seconds. 
+Input: The elevator with updated state and timerDurationChan that starts a timer with the specified duration in seconds.
 */
 func activateElevatorIO(elevator Elevator, timerDurationChan chan int) {
 
@@ -134,7 +134,7 @@ Returns true if there are calls below the elevator's current floor
 Else returns false
 */
 func callsBelowElevator(elevator Elevator) bool {
-	for f := range(elevator.Floor) {
+	for f := range elevator.Floor {
 		for btn := 0; btn < config.N_BUTTONS; btn++ {
 			if elevator.Calls[f][btn] {
 				return true
@@ -150,7 +150,7 @@ Returns true if there are calls at the elevator's current floor
 Else returns false
 */
 func callsAtCurrentFloor(elevator Elevator) bool {
-	for btn := range(config.N_BUTTONS) {
+	for btn := range config.N_BUTTONS {
 		if elevator.Calls[elevator.Floor][btn] {
 			return true
 		}
@@ -175,7 +175,7 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 		} else if callsBelowElevator(elevator) {
 			return D_Down, EB_Moving
 		} else {
-			return D_Stop, EB_Idle
+			return D_Up, EB_Idle
 		}
 	case D_Down:
 		if callsBelowElevator(elevator) {
@@ -185,7 +185,7 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 		} else if callsAboveElevator(elevator) {
 			return D_Up, EB_Moving
 		} else {
-			return D_Stop, EB_Idle
+			return D_Down, EB_Idle
 		}
 	case D_Stop:
 		if callsAtCurrentFloor(elevator) {
@@ -197,8 +197,9 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 		} else {
 			return D_Stop, EB_Idle
 		}
+	default:
+		panic("no other cases")
 	}
-	return D_Stop, EB_Idle
 }
 
 /*
@@ -236,11 +237,11 @@ func shouldElevatorStop(elevator Elevator) bool {
 }
 
 /*
-Clears calls depending on the direction of the elevator. 
+Clears calls depending on the direction of the elevator.
 
 Input: the elevator
 
-Returns: the elevator with cleared calls at the current floor. 
+Returns: the elevator with cleared calls at the current floor.
 */
 func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.Calls[elevator.Floor][elevio.BT_Cab] = false
