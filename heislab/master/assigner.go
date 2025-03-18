@@ -121,7 +121,7 @@ func assign(elevators [config.N_ELEVATORS]slave.Elevator, callsToAssign AssignCa
 	fmt.Println("Input to assigner: ", string(input))
 
 	// assigns and returns output in json format
-	outputJsonFormat, errAssign := exec.Command("heislab/Project-resources/cost_fns/hall_request_assigner/"+hraExecutable, "-i", string(input)).CombinedOutput()
+	outputJsonFormat, errAssign := exec.Command("heislab/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
 		fmt.Println("Error occured when assigning: ", errAssign, ", output: ", string(outputJsonFormat))

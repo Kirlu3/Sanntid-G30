@@ -61,55 +61,13 @@ Input: The new elevator struct, the old elevator struct, the channel to send mes
 
 Returns: The updated elevator struct
 */
-func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator, timerDurationChan chan int) Elevator {
+func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator) Elevator {
 	if validElevator(newElevator) {
 		fmt.Println("Valid elevator")
-		activateElevatorIO(newElevator, timerDurationChan)
 		slaveStateToMasterChan <- newElevator
 		return newElevator
 	}
 	return elevator
-}
-
-/*
-	Activates when the elevator state is updated
-	Interfaces with the elevator hardware to update the lights and motor direction
-	If the door opens or the elevator starts moving, the corresponding timer is started
-
-Input: The elevator with updated state and timerDurationChan that starts a timer with the specified duration in seconds.
-*/
-func activateElevatorIO(elevator Elevator, timerDurationChan chan int) {
-
-	elevio.SetFloorIndicator(elevator.Floor) //Floor IO
-
-	switch elevator.Behaviour {
-	case EB_DoorOpen:
-		timerDurationChan <- doorOpenDuration
-		elevio.SetDoorOpenLamp(true)
-		elevio.SetMotorDirection(elevio.MD_Stop)
-	case EB_Moving:
-		timerDurationChan <- timeBetweenFloors
-		elevio.SetDoorOpenLamp(false)
-		elevio.SetMotorDirection(elevio.MotorDirection(elevator.Direction))
-	case EB_Idle:
-		elevio.SetDoorOpenLamp(false)
-		elevio.SetMotorDirection(elevio.MD_Stop)
-	}
-}
-
-/*
-	Updates the lights on the elevator panel.
-	Interfaces with the elevator hardware to update the lights.
-
-Input: Array of how the lights should be updated.
-*/
-func updateLights(lights [config.N_FLOORS][config.N_BUTTONS]bool) {
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS {
-			elevio.SetButtonLamp(elevio.ButtonType(j), i, lights[i][j])
-		}
-	}
-
 }
 
 /*

@@ -29,25 +29,26 @@ func fsm(ID int,
 	updateLights(elevator.Calls)
 
 	newElevator := initElevator(elevator)
-	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
 
 	for {
 		fmt.Println("FSM:New Loop")
+		activateElevatorIO(elevator, timerDurationChan)
 		select {
 		case newCalls := <-callsFromMasterChan:
 			fmt.Println("Slave: Updating orders")
 			elevator.Calls = newCalls
 			newElevator = fsm_onNewCalls(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
 
 		case floor := <-drv_NewFloorChan:
 			fmt.Println("FSM: Floor arrival", floor)
 			newElevator = fsm_onFloorArrival(floor, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
 
 		case obstr := <-drv_ObstrChan:
 			newElevator = fsm_onObstruction(obstr, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
 
 		case <-drv_StopChan:
 			fsm_onStopButtonPress()
@@ -55,7 +56,7 @@ func fsm(ID int,
 		case <-timer.C:
 			fmt.Println("FSM: Timer end")
 			newElevator = fsm_onTimerEnd(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
 		}
 	}
 }
@@ -113,7 +114,6 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	switch elevator.Behaviour {
 	case EB_Moving:
 		if shouldElevatorStop(elevator) {
-
 			if callsAtCurrentFloor(elevator) {
 				newElevator := clearCallsAtCurrentFloor(elevator)
 				if newElevator.Calls == elevator.Calls {
@@ -145,10 +145,6 @@ Returns: the elevator object with updated state depending on obstruction.
 func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	fmt.Println("onObstruction")
 	elevator.Stuck = obstruction
-	if obstruction {
-		elevator.Behaviour = EB_DoorOpen
-		elevator.Direction = D_Stop
-	}
 	return elevator
 }
 

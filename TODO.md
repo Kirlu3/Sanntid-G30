@@ -19,3 +19,5 @@ change shouldReassign bool. It's unnecessary in this case I think, as we might a
 
 bugs: 
 elevator doesnt clear hall calls at current floor after becoming unobstructed, maybe related to floorarrival method of clearing calls?  
+
+TODO: change obstruction to not stop and open door
