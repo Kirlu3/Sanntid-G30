@@ -6,6 +6,7 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/backup"
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/master"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
@@ -31,7 +32,9 @@ func main() {
 	offlineSlaveStateToMasterChan := make(chan slave.Elevator)
 
 	slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
-	go backup.Backup(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
+
+	backedUpCalls := backup.Backup(*id)
+	master.Master(backedUpCalls, *id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 
 	select {}
 }
