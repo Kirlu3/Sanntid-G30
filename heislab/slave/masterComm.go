@@ -40,12 +40,11 @@ func buttonPressTx(drv_BtnChan <-chan elevio.ButtonEvent, offlineSlaveBtnToMaste
 mainLoop:
 	for {
 		select {
+		case masterUpdate = <-masterUpdateRxChan:
+			continue mainLoop
 		case btnPress := <-drv_BtnChan:
 			fmt.Println("STx: Button Pressed")
-			select {
-			case masterUpdate = <-masterUpdateRxChan:
-			default:
-			}
+
 			if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(ID) {
 				select {
 				case offlineSlaveBtnToMasterChan <- ButtonMessage{0, ID, btnPress}:
@@ -105,7 +104,7 @@ mainLoop:
 slaveStateTx handles periodic transmission of the elevator´s state to the master.
 It reads the elevator´s state from slaveStateToMasterChan.
 If the master is in offline mode, the state of the elevator is sent to the channel offlineSlaveStateToMasterChan.
-Other wise, the state is broadcasted to the master.
+Otherwise, the state is broadcasted to the master.
 The function continuously checks for master updates and ensures that the elevator's state is transmitted at regular intervals.
 */
 func slaveStateTx(slaveStateToMasterChan <-chan Elevator, offlineSlaveStateToMasterChan chan<- Elevator) {
@@ -121,12 +120,13 @@ mainLoop:
 	for {
 		select {
 		case masterUpdate = <-masterUpdateRxChan:
-		default:
-		}
-		select {
+			//Do nothing
 		case slaveState = <-slaveStateToMasterChan:
-		default:
+			//Do nothing
+		case <-time.After(time.Millisecond * time.Duration(config.BroadcastMessagePeriodMs)):
+			//Do nothing
 		}
+
 		if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(slaveState.ID) {
 			select {
 			case offlineSlaveStateToMasterChan <- slaveState:
@@ -135,7 +135,6 @@ mainLoop:
 			}
 		}
 		slaveStateTxChan <- slaveState
-		time.Sleep(time.Millisecond * time.Duration(config.BroadcastMessagePeriodMs))
 	}
 }
 

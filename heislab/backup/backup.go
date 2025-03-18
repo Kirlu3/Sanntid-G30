@@ -55,9 +55,9 @@ func Backup(id string) master.Calls {
 
 	for {
 		select {
-		case c := <-masterCallsRxChan:
-			if len(masterUpdate.Peers) > 0 && strconv.Itoa(c.Id) == masterUpdate.Peers[0] {
-				calls = c.Calls
+		case newCalls := <-masterCallsRxChan:
+			if len(masterUpdate.Peers) > 0 && strconv.Itoa(newCalls.Id) == masterUpdate.Peers[0] {
+				calls = newCalls.Calls
 			} else {
 				fmt.Println("received a message from not the master")
 			}
@@ -75,19 +75,17 @@ func Backup(id string) master.Calls {
 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
 		case <-time.After(time.Second * 2):
-			fmt.Println("backup select blocked for 2 seconds. this should only happen if there are no masters, maybe this is too short?")
+			fmt.Println("No new messages for two seconds, no master available")
 		}
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
-		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {
+		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id {
 			select {
 			case <-masterUpgradeCooldownTimer.C:
-				return true
+				enableBackupTxChan <- false
+				return calls
 			default:
-				return false
 			}
-		}() {
-			enableBackupTxChan <- false
-			return calls
 		}
+
 	}
 }

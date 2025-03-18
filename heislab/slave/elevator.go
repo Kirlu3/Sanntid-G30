@@ -251,8 +251,13 @@ func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 	case D_Down:
 		elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
 	default:
-		elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
-		elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
+		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] {
+			elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
+			elevator.Direction = D_Up
+		} else if elevator.Calls[elevator.Floor][elevio.BT_HallDown] {
+			elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
+			elevator.Direction = D_Down
+		}
 	}
 	fmt.Println("Cleared at current floor:", elevator.Calls)
 	return elevator

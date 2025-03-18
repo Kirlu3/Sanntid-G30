@@ -12,15 +12,14 @@ import (
 	Explained in more detail in the README
 
 Input: the elevator ID and all relevant channels
-
 */
 func fsm(ID int,
-	slaveStateToMasterChan chan<- Elevator, 
+	slaveStateToMasterChan chan<- Elevator,
 	callsFromMasterChan <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
-	drv_NewFloorChan <-chan int, 
-	drv_ObstrChan <-chan bool, 
-	drv_StopChan <-chan bool, 
-	timerDurationChan chan int, 
+	drv_NewFloorChan <-chan int,
+	drv_ObstrChan <-chan bool,
+	drv_StopChan <-chan bool,
+	timerDurationChan chan int,
 	timer *time.Timer,
 ) {
 
@@ -35,13 +34,13 @@ func fsm(ID int,
 	for {
 		fmt.Println("FSM:New Loop")
 		select {
-		case newCalls := <- callsFromMasterChan:
+		case newCalls := <-callsFromMasterChan:
 			fmt.Println("Slave: Updating orders")
 			elevator.Calls = newCalls
 			newElevator = fsm_onNewCalls(elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
-		case floor := <- drv_NewFloorChan:
+		case floor := <-drv_NewFloorChan:
 			fmt.Println("FSM: Floor arrival", floor)
 			newElevator = fsm_onFloorArrival(floor, elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
@@ -50,10 +49,10 @@ func fsm(ID int,
 			newElevator = fsm_onObstruction(obstr, elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
-		case <- drv_StopChan:
+		case <-drv_StopChan:
 			fsm_onStopButtonPress()
 
-		case <- timer.C:
+		case <-timer.C:
 			fmt.Println("FSM: Timer end")
 			newElevator = fsm_onTimerEnd(elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
@@ -105,7 +104,7 @@ func fsm_onNewCalls(elevator Elevator) Elevator {
 
 Input: the elevator and the new floor
 
-Returns: the elevator with the floor updated 
+Returns: the elevator with the floor updated
 */
 func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	elevator.Stuck = false //if the elevator arrives at a floor, it is not stuck
@@ -114,8 +113,12 @@ func fsm_onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	switch elevator.Behaviour {
 	case EB_Moving:
 		if shouldElevatorStop(elevator) { //This causes the door to open on init, probably fine?
-			elevator = clearCallsAtCurrentFloor(elevator)
-			elevator.Behaviour = EB_DoorOpen
+			if callsAtCurrentFloor(elevator) {
+				elevator = clearCallsAtCurrentFloor(elevator)
+				elevator.Behaviour = EB_DoorOpen
+			} else {
+				elevator.Behaviour = EB_Idle
+			}
 		}
 	}
 	return elevator
@@ -134,10 +137,6 @@ func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	if obstruction {
 		elevator.Behaviour = EB_DoorOpen
 		elevator.Direction = D_Stop
-	} else {
-		direction, behaviour := chooseElevatorDirection(elevator)
-		elevator.Direction = direction
-		elevator.Behaviour = behaviour
 	}
 	return elevator
 }

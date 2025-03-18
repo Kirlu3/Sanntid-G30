@@ -67,8 +67,7 @@ func fromAliveBackupsRx(aliveBackupsChan chan<- []string) {
 	updateFromBackupsChan := make(chan peers.PeerUpdate)
 	go peers.Receiver(config.BackupsUpdatePort, updateFromBackupsChan)
 	var aliveBackups []string
-	for {
-		update := <-updateFromBackupsChan
+	for update := range updateFromBackupsChan {
 		fmt.Printf("Backups update:\n")
 		fmt.Printf("  Backups:    %q\n", update.Peers)
 		fmt.Printf("  New:        %q\n", update.New)
@@ -146,7 +145,7 @@ mainLoop:
 				acksReceived[callsFromBackup.Id] = true
 			}
 
-		case aliveBackups = <-aliveBackupsChan:
+		case aliveBackups = <-aliveBackupsChan: //what does this do or mean?
 			wantReassignment = true
 
 		case otherMasterUpdate := <-otherMasterUpdateChan:

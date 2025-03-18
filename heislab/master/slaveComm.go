@@ -79,7 +79,7 @@ func slaveStateUpdateRx(
 			elevators[slaveStateUpdate.ID] = slaveStateUpdate
 			slaveStateUpdateChan <- slaveStateUpdate
 		}
-		if slaveStateUpdate.Behaviour == slave.EB_DoorOpen {
+		if slaveStateUpdate.Behaviour == slave.EB_DoorOpen && !slaveStateUpdate.Stuck {
 			callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
 		}
 	}
