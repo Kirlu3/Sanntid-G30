@@ -145,7 +145,7 @@ mainLoop:
 				acksReceived[callsFromBackup.Id] = true
 			}
 
-		case aliveBackups = <-aliveBackupsChan: //what does this do or mean?
+		case aliveBackups = <-aliveBackupsChan:
 			wantReassignment = true
 
 		case otherMasterUpdate := <-otherMasterUpdateChan:

@@ -60,40 +60,29 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 	for i := range config.N_ELEVATORS {
 		elevators[i].ID = i // suggested fix to assigner init bug
 	}
-	shouldReassign := false
+
 	for {
 		select {
 		case stateUpdate := <-slaveStateUpdateChan:
-			prevElevator := elevators[stateUpdate.ID]
 			elevators[stateUpdate.ID] = stateUpdate
-
-			if prevElevator.Stuck != stateUpdate.Stuck {
-				shouldReassign = true
-			}
 			fmt.Println("As:Received new states")
 
 		case calls = <-callsToAssignChan:
-			shouldReassign = true
 			fmt.Printf("As: state: %v\n", elevators)
 		}
-		if shouldReassign {
-			var assignedCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-			for i, elevator := range elevators {
-				if elevator.Stuck {
-					calls.AliveElevators[i] = false // acts as if the elevator is dead if it is stuck
-				}
+		var assignedCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+		for i, elevator := range elevators {
+			if elevator.Stuck {
+				calls.AliveElevators[i] = false // acts as if the elevator is dead if it is stuck
 			}
-			if slices.Contains(calls.AliveElevators[:], true) {
-				assignedCalls = assign(elevators, calls)
-			} else {
-				assignedCalls = assignAllCallsToMaster(calls.Calls, id)
-			}
-			callsToSlaveChan <- assignedCalls
-			shouldReassign = false
-			fmt.Println("As:Succeded")
 		}
+		if !slices.Contains(calls.AliveElevators[:], true) {
+			calls.AliveElevators[id] = true
+		}
+		assignedCalls = assign(elevators, calls)
+		callsToSlaveChan <- assignedCalls
+		fmt.Println("As:Succeded")
 	}
-
 }
 
 func assignAllCallsToMaster(calls Calls, id int) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
