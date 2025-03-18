@@ -17,7 +17,7 @@ import (
 
 The routine listens to the master's UDP broadcasts and responds with the updated calls.
 If the backup loses connection with the master, it will transition to the master phase with its current list of calls.
-A large portion of the backup code are pretty prints of updates to peer lists.
+A large portion of the backup code are pretty prints of updates to alive lists.
 */
 func Backup(id string) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
