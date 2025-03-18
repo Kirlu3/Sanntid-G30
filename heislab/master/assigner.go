@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -50,6 +51,7 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 		AliveElevators [config.N_ELEVATORS]bool
 	},
 	callsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	id int,
 ) {
 
 	elevators := [config.N_ELEVATORS]slave.Elevator{} // consider waiting for state init
@@ -58,6 +60,7 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 	for i := range config.N_ELEVATORS {
 		elevators[i].ID = i // suggested fix to assigner init bug
 	}
+	shouldReassign := false
 	for {
 		select {
 		case stateUpdate := <-slaveStateUpdateChan:
@@ -66,25 +69,41 @@ func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
 
 			if prevElevator.Stuck != stateUpdate.Stuck { // reassign if elev has become stuck/unstuck
 				calls.AliveElevators[stateUpdate.ID] = !stateUpdate.Stuck // acts as if the elevator is dead if it is stuck
-				assignedCalls := assign(elevators, calls)
-				callsToSlaveChan <- assignedCalls
+				shouldReassign = true
 			}
 			fmt.Println("As:Received new states")
 
-		default:
-			select {
-			case calls = <-callsToAssignChan:
-
-				fmt.Printf("As: state: %v\n", elevators)
-				assignedCalls := assign(elevators, calls)
-				//fmt.Printf("assigned:%v\n", assignments)
-				callsToSlaveChan <- assignedCalls
-				fmt.Println("As:Succeded")
-			default:
+		case calls = <-callsToAssignChan:
+			shouldReassign = true
+			fmt.Printf("As: state: %v\n", elevators)
+		}
+		if shouldReassign {
+			var assignedCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+			if slices.Contains(calls.AliveElevators[:], true) {
+				assignedCalls = assign(elevators, calls)
+			} else {
+				assignedCalls = assignAllCallsToMaster(calls.Calls, id)
 			}
+			callsToSlaveChan <- assignedCalls
+			shouldReassign = false
+			fmt.Println("As:Succeded")
 		}
 	}
 
+}
+
+func assignAllCallsToMaster(calls Calls, id int) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
+	var assignedCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	for floor := range config.N_FLOORS {
+		assignedCalls[id][floor][elevio.BT_HallDown] = calls.HallCalls[floor][elevio.BT_HallDown]
+		assignedCalls[id][floor][elevio.BT_HallUp] = calls.HallCalls[floor][elevio.BT_HallUp]
+	}
+	for elevator := range config.N_ELEVATORS {
+		for floor := range config.N_FLOORS {
+			assignedCalls[elevator][floor][elevio.BT_Cab] = calls.CabCalls[elevator][floor]
+		}
+	}
+	return assignedCalls
 }
 
 /*
@@ -170,7 +189,7 @@ Output: an array of the assigned calls
 */
 func transformOutput(outputJsonFormat []byte, callsToAssign AssignCalls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
-	tempOutput := new(map[string][config.N_FLOORS][config.N_BUTTONS-1]bool)
+	tempOutput := new(map[string][config.N_FLOORS][config.N_BUTTONS - 1]bool)
 
 	errUnmarshal := json.Unmarshal(outputJsonFormat, &tempOutput)
 

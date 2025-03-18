@@ -74,7 +74,7 @@ func Backup(
 			fmt.Printf("  New:        %q\n", backupsUpdate.New)
 			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
-		case masterUpdate = <- masterUpdateRxChan:
+		case masterUpdate = <-masterUpdateRxChan:
 			fmt.Printf("Master update:\n")
 			fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
@@ -93,7 +93,7 @@ func Backup(
 			}
 		}() {
 			enableBackupTxChan <- false
-			master.Master(calls, idInt,  offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
+			master.Master(calls, idInt, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 			panic("the master phase should never return")
 		}
 	}
