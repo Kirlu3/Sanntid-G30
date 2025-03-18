@@ -61,7 +61,7 @@ func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) 
 }
 
 /*
-fromAliveBackupsRxr listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the alive backups to aliveBackupsChan.
+fromAliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the alive backups to aliveBackupsChan.
 */
 func fromAliveBackupsRx(aliveBackupsChan chan<- []string) {
 	updateFromBackupsChan := make(chan peers.PeerUpdate)
@@ -140,25 +140,15 @@ mainLoop:
 				acksReceived[Id] = true
 			}
 
-		default:
-		}
-
-		select {
 		case callsFromBackup := <-callsFromBackupsRxChan: // set ack for backup if it has the same calls
 			if callsFromBackup.Calls == calls && !acksReceived[callsFromBackup.Id] {
 				fmt.Println("new backup state from", callsFromBackup.Id)
 				acksReceived[callsFromBackup.Id] = true
 			}
-		default:
-		}
 
-		select {
 		case aliveBackups = <-aliveBackupsChan:
 			wantReassignment = true
-		default:
-		}
 
-		select {
 		case otherMasterUpdate := <-otherMasterUpdateChan:
 			if otherMasterUpdate.Id < Id && isCallsSubset(calls, otherMasterUpdate.Calls) {
 				fmt.Println("find a better way to restart the program")
@@ -170,7 +160,6 @@ mainLoop:
 			} else {
 				fmt.Println("couldn't end master phase: other master has not accepted our calls")
 			}
-		default:
 		}
 
 		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop

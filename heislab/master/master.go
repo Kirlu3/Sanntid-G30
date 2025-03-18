@@ -35,7 +35,7 @@ func Master(
 	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
 
 	go backupCoordinator(callsUpdateChan, callsToAssignChan, initCalls, Id)
-	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan)
+	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, Id)
 
 	go buttonPressRx(callsUpdateChan, offlineSlaveBtnToMasterChan)
 	go slaveStateUpdateRx(slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan)
