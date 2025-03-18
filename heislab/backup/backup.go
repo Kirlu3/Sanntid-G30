@@ -10,7 +10,6 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/master"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
-	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
 /*
@@ -20,12 +19,7 @@ The routine listens to the master's UDP broadcasts and responds with the updated
 If the backup loses connection with the master, it will transition to the master phase with its current list of calls.
 A large portion of the backup code are pretty prints of updates to peer lists.
 */
-func Backup(
-	id string,
-	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
-	offlineSlaveStateToMasterChan <-chan slave.Elevator,
-) {
+func Backup(id string) master.Calls {
 	masterUpdateRxChan := make(chan peers.PeerUpdate)
 	backupsUpdateRxChan := make(chan peers.PeerUpdate)
 	enableBackupTxChan := make(chan bool)
@@ -57,7 +51,7 @@ func Backup(
 		panic("backup received invalid id")
 	}
 
-	masterUpdateCooldownTimer := time.NewTimer(1 * time.Second)
+	masterUpgradeCooldownTimer := time.NewTimer(1 * time.Second)
 
 	for {
 		select {
@@ -86,15 +80,14 @@ func Backup(
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
 		if len(masterUpdate.Peers) == 0 && len(backupsUpdate.Peers) != 0 && slices.Min(backupsUpdate.Peers) == id && func() bool {
 			select {
-			case <-masterUpdateCooldownTimer.C:
+			case <-masterUpgradeCooldownTimer.C:
 				return true
 			default:
 				return false
 			}
 		}() {
 			enableBackupTxChan <- false
-			master.Master(calls, idInt, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
-			panic("the master phase should never return")
+			return calls
 		}
 	}
 }

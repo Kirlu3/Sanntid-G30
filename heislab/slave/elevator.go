@@ -119,7 +119,7 @@ Else returns false
 */
 func callsAboveElevator(elevator Elevator) bool {
 	for f := elevator.Floor + 1; f < config.N_FLOORS; f++ {
-		for btn := 0; btn < config.N_BUTTONS; btn++ {
+		for btn := range config.N_BUTTONS {
 			if elevator.Calls[f][btn] {
 				return true
 			}
@@ -135,7 +135,7 @@ Else returns false
 */
 func callsBelowElevator(elevator Elevator) bool {
 	for f := range elevator.Floor {
-		for btn := 0; btn < config.N_BUTTONS; btn++ {
+		for btn := range config.N_BUTTONS {
 			if elevator.Calls[f][btn] {
 				return true
 			}

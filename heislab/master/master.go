@@ -10,12 +10,16 @@ import (
 )
 
 func Master(
-	initCalls Calls,
-	Id int,
+	initialCalls Calls,
+	id_string string,
 	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
 	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 ) {
+	Id, err := strconv.Atoi(id_string)
+	if err != nil {
+		panic("master received invalid id")
+	}
 	fmt.Println(Id, "entered master mode")
 
 	callsUpdateChan := make(chan struct {
@@ -34,13 +38,11 @@ func Master(
 
 	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
 
-	go backupCoordinator(callsUpdateChan, callsToAssignChan, initCalls, Id)
+	go backupCoordinator(callsUpdateChan, callsToAssignChan, initialCalls, Id)
 	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, Id)
 
 	go buttonPressRx(callsUpdateChan, offlineSlaveBtnToMasterChan)
 	go slaveStateUpdateRx(slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan)
 	go callsToSlavesTx(callsToSlaveChan, offlineCallsToSlaveChan)
 
-	// the program is crashed and restarted when it should go back to backup mode
-	select {}
 }

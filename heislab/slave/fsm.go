@@ -21,7 +21,8 @@ func fsm(ID int,
 	drv_ObstrChan <-chan bool, 
 	drv_StopChan <-chan bool, 
 	timerDurationChan chan int, 
-	timer *time.Timer) {
+	timer *time.Timer,
+) {
 
 	//initialize elevator
 	var elevator Elevator
@@ -36,7 +37,6 @@ func fsm(ID int,
 		select {
 		case newCalls := <- callsFromMasterChan:
 			fmt.Println("Slave: Updating orders")
-
 			elevator.Calls = newCalls
 			newElevator = fsm_onNewCalls(elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
