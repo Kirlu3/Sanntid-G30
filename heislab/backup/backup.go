@@ -8,8 +8,8 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/master"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
 /*
@@ -20,8 +20,8 @@ If the backup loses connection with the master, it will transition to the master
 A large portion of the backup code are pretty prints of updates to peer lists.
 */
 func Backup(id string) master.Calls {
-	masterUpdateRxChan := make(chan peers.PeerUpdate)
-	backupsUpdateRxChan := make(chan peers.PeerUpdate)
+	masterUpdateRxChan := make(chan alive.AliveUpdate)
+	backupsUpdateRxChan := make(chan alive.AliveUpdate)
 	enableBackupTxChan := make(chan bool)
 	backupCallsTxChan := make(chan struct {
 		Calls master.Calls
@@ -32,18 +32,18 @@ func Backup(id string) master.Calls {
 		Id    int
 	})
 
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 
-	go peers.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
-	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateRxChan)
+	go alive.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
+	go alive.Receiver(config.BackupsUpdatePort, backupsUpdateRxChan)
 
 	go bcast.Transmitter(config.BackupsCallsPort, backupCallsTxChan)
 
 	go bcast.Receiver(config.MasterCallsPort, masterCallsRxChan)
 
 	fmt.Println("Backup Started: ", id)
-	var backupsUpdate peers.PeerUpdate
-	var masterUpdate peers.PeerUpdate
+	var backupsUpdate alive.AliveUpdate
+	var masterUpdate alive.AliveUpdate
 	var calls master.Calls
 
 	idInt, err := strconv.Atoi(id)
@@ -56,7 +56,7 @@ func Backup(id string) master.Calls {
 	for {
 		select {
 		case newCalls := <-masterCallsRxChan:
-			if len(masterUpdate.Peers) > 0 && strconv.Itoa(newCalls.Id) == masterUpdate.Peers[0] {
+			if len(masterUpdate.Alive) > 0 && strconv.Itoa(newCalls.Id) == masterUpdate.Alive[0] {
 				calls = newCalls.Calls
 			} else {
 				fmt.Println("received a message from not the master")
@@ -64,13 +64,13 @@ func Backup(id string) master.Calls {
 
 		case backupsUpdate = <-backupsUpdateRxChan:
 			fmt.Printf("Backups update:\n")
-			fmt.Printf("  Backups:    %q\n", backupsUpdate.Peers)
+			fmt.Printf("  Backups:    %q\n", backupsUpdate.Alive)
 			fmt.Printf("  New:        %q\n", backupsUpdate.New)
 			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
 		case masterUpdate = <-masterUpdateRxChan:
 			fmt.Printf("Master update:\n")
-			fmt.Printf("  Masters:    %q\n", masterUpdate.Peers)
+			fmt.Printf("  Masters:    %q\n", masterUpdate.Alive)
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
@@ -78,7 +78,7 @@ func Backup(id string) master.Calls {
 			fmt.Println("No new messages for two seconds, no master available")
 		}
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
-		if len(masterUpdate.Peers) == 0 && (len(backupsUpdate.Peers) == 0 || slices.Min(backupsUpdate.Peers) == id) {
+		if len(masterUpdate.Alive) == 0 && (len(backupsUpdate.Alive) == 0 || slices.Min(backupsUpdate.Alive) == id) {
 			select {
 			case <-masterUpgradeCooldownTimer.C:
 				enableBackupTxChan <- false

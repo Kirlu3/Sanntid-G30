@@ -9,7 +9,7 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/master"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 )
 
 func TestNetwork(t *testing.T) {
@@ -36,22 +36,22 @@ func foo() {
 
 // monitor the master and backup update port
 func TestListenBackupMasterUpdate(t *testing.T) {
-	masterUpdateRxChan := make(chan peers.PeerUpdate)
-	backupUpdateRxChan := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	go peers.Receiver(config.BackupsUpdatePort, backupUpdateRxChan)
+	masterUpdateRxChan := make(chan alive.AliveUpdate)
+	backupUpdateRxChan := make(chan alive.AliveUpdate)
+	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	go alive.Receiver(config.BackupsUpdatePort, backupUpdateRxChan)
 
 	for {
 		select {
 		case p := <-masterUpdateRxChan:
 			fmt.Printf("master update:\n")
-			fmt.Printf("  Masters:    %q\n", p.Peers)
+			fmt.Printf("  Masters:    %q\n", p.Alive)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
 		case p := <-backupUpdateRxChan:
 			fmt.Printf("backup update:\n")
-			fmt.Printf("  Backups:    %q\n", p.Peers)
+			fmt.Printf("  Backups:    %q\n", p.Alive)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
@@ -61,14 +61,14 @@ func TestListenBackupMasterUpdate(t *testing.T) {
 
 // monitor the master update port
 func TestListenMasterUpdate(t *testing.T) {
-	masterUpdateRxChan := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	masterUpdateRxChan := make(chan alive.AliveUpdate)
+	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 
 	for {
 		select {
 		case p := <-masterUpdateRxChan:
 			fmt.Printf("master update:\n")
-			fmt.Printf("  Masters:    %q\n", p.Peers)
+			fmt.Printf("  Masters:    %q\n", p.Alive)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
@@ -78,14 +78,14 @@ func TestListenMasterUpdate(t *testing.T) {
 
 // monitor the backup update port
 func TestListenBackupUpdate(t *testing.T) {
-	backupUpdateRxChan := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.BackupsUpdatePort, backupUpdateRxChan)
+	backupUpdateRxChan := make(chan alive.AliveUpdate)
+	go alive.Receiver(config.BackupsUpdatePort, backupUpdateRxChan)
 
 	for {
 		select {
 		case p := <-backupUpdateRxChan:
 			fmt.Printf("backup update:\n")
-			fmt.Printf("  Backups:    %q\n", p.Peers)
+			fmt.Printf("  Backups:    %q\n", p.Alive)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
@@ -95,14 +95,14 @@ func TestListenBackupUpdate(t *testing.T) {
 
 func TestPeersEnableTx(t *testing.T) {
 	id := "2"
-	masterUpdateRxChan := make(chan peers.PeerUpdate)
+	masterUpdateRxChan := make(chan alive.AliveUpdate)
 	enableMasterTxChan := make(chan bool)
 	go func() {
 		for {
 			select {
 			case p := <-masterUpdateRxChan:
 				fmt.Printf("master update:\n")
-				fmt.Printf("  Masters:    %q\n", p.Peers)
+				fmt.Printf("  Masters:    %q\n", p.Alive)
 				fmt.Printf("  New:      %q\n", p.New)
 				fmt.Printf("  Lost:     %q\n", p.Lost)
 				time.Sleep(time.Millisecond * 20)
@@ -110,13 +110,13 @@ func TestPeersEnableTx(t *testing.T) {
 			}
 		}
 	}()
-	go peers.Transmitter(config.MasterUpdatePort, id, enableMasterTxChan)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	go alive.Transmitter(config.MasterUpdatePort, id, enableMasterTxChan)
+	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 	// time.Sleep(time.Millisecond*10)
 	// masterTxEnable <- false
 
 	enableMasterTxChan2 := make(chan bool)
-	go peers.Transmitter(config.MasterUpdatePort, "3", enableMasterTxChan2)
+	go alive.Transmitter(config.MasterUpdatePort, "3", enableMasterTxChan2)
 	enable := false
 	for {
 		time.Sleep(time.Millisecond * 2000)

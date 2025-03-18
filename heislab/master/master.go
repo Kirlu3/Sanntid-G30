@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
@@ -36,7 +36,7 @@ func Master(
 	callsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	enableMasterTxChan := make(chan bool)
 
-	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
+	go alive.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
 
 	go backupCoordinator(callsUpdateChan, callsToAssignChan, initialCalls, Id)
 	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, Id)

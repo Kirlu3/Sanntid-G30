@@ -1,4 +1,4 @@
-package peers
+package alive
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/conn"
 )
 
-type PeerUpdate struct {
-	Peers []string
+type AliveUpdate struct {
+	Alive []string
 	New   string
 	Lost  []string
 }
@@ -35,10 +35,10 @@ func Transmitter(port int, id string, transmitEnable <-chan bool) {
 	}
 }
 
-func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
+func Receiver(port int, peerUpdateCh chan<- AliveUpdate) {
 
 	var buf [1024]byte
-	var p PeerUpdate
+	var p AliveUpdate
 	lastSeen := make(map[string]time.Time)
 
 	conn := conn.DialBroadcastUDP(port)
@@ -74,13 +74,13 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 		// Sending update
 		if updated {
-			p.Peers = make([]string, 0, len(lastSeen))
+			p.Alive = make([]string, 0, len(lastSeen))
 
 			for k, _ := range lastSeen {
-				p.Peers = append(p.Peers, k)
+				p.Alive = append(p.Alive, k)
 			}
 
-			sort.Strings(p.Peers)
+			sort.Strings(p.Alive)
 			sort.Strings(p.Lost)
 			peerUpdateCh <- p
 		}

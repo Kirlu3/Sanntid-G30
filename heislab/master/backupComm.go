@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
 // Arrays of all HallCalls and CabCalls
@@ -64,15 +64,15 @@ func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) 
 fromAliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the alive backups to aliveBackupsChan.
 */
 func fromAliveBackupsRx(aliveBackupsChan chan<- []string) {
-	updateFromBackupsChan := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.BackupsUpdatePort, updateFromBackupsChan)
+	updateFromBackupsChan := make(chan alive.AliveUpdate)
+	go alive.Receiver(config.BackupsUpdatePort, updateFromBackupsChan)
 	var aliveBackups []string
 	for update := range updateFromBackupsChan {
 		fmt.Printf("Backups update:\n")
-		fmt.Printf("  Backups:    %q\n", update.Peers)
+		fmt.Printf("  Backups:    %q\n", update.Alive)
 		fmt.Printf("  New:        %q\n", update.New)
 		fmt.Printf("  Lost:       %q\n", update.Lost)
-		aliveBackups = update.Peers
+		aliveBackups = update.Alive
 		if len(update.Lost) != 0 || update.New != "" {
 			aliveBackupsChan <- aliveBackups
 		}

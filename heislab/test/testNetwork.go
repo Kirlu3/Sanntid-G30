@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/localip"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
 // We define some custom struct to send over the network.
@@ -41,12 +41,12 @@ func network() {
 
 	// We make a channel for receiving updates on the id's of the peers that are
 	//  alive on the network
-	peerUpdateCh := make(chan peers.PeerUpdate)
+	peerUpdateCh := make(chan alive.AliveUpdate)
 	// We can disable/enable the transmitter after it has been started.
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
-	go peers.Transmitter(15647, id, peerTxEnable)
-	go peers.Receiver(15647, peerUpdateCh)
+	go alive.Transmitter(15647, id, peerTxEnable)
+	go alive.Receiver(15647, peerUpdateCh)
 
 	// We make channels for sending and receiving our custom data types
 	helloTx := make(chan HelloMsg)
@@ -72,7 +72,7 @@ func network() {
 		select {
 		case p := <-peerUpdateCh:
 			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
+			fmt.Printf("  Peers:    %q\n", p.Alive)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 
