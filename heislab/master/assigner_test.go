@@ -14,7 +14,7 @@ func TestAssigner(t *testing.T) {
 		{
 			Floor:     1,
 			Direction: -1,
-			Requests: [4][3]bool{
+			Calls: [4][3]bool{
 				{false, false, false},
 				{false, false, false},
 				{false, false, false},
@@ -27,7 +27,7 @@ func TestAssigner(t *testing.T) {
 		{
 			Floor:     0,
 			Direction: 0,
-			Requests: [4][3]bool{
+			Calls: [4][3]bool{
 				{false, false, false},
 				{false, false, false},
 				{false, false, false},
@@ -40,7 +40,7 @@ func TestAssigner(t *testing.T) {
 		{
 			Floor:     0,
 			Direction: 0,
-			Requests: [4][3]bool{
+			Calls: [4][3]bool{
 				{false, false, false},
 				{false, false, false},
 				{false, false, false},

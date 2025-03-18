@@ -3,12 +3,10 @@ package slave
 import "time"
 
 /*
-	Timer function that starts a timer for a given amount of time
-
-Input: The channel to start the timer, the timer to be started
+	resetTimer resets the timer with a duration in seconds given by timerDurationChan.
 */
-func timer(t_start chan int, t_end *time.Timer) {
-	for a := range t_start {
-		t_end.Reset(time.Second * time.Duration(a))
+func resetTimer(timerDurationChan chan int, timer *time.Timer) {
+	for seconds := range timerDurationChan {
+		timer.Reset(time.Second * time.Duration(seconds))
 	}
 }

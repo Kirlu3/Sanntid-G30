@@ -11,36 +11,40 @@ import (
 // Initialization and main loop of the slave module
 func Slave(
 	id string,
-	masterToSlaveOfflineCh <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineButton chan<- ButtonMessage,
-	slaveToMasterOfflineElevator chan<- Elevator,
+	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	offlineSlaveBtnToMasterChan chan<- ButtonMessage,
+	offlineSlaveStateToMasterChan chan<- Elevator,
 ) {
-	ID, _ := strconv.Atoi(id)
-	//initialize channels
-	drv_buttons := make(chan elevio.ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
-	drv_stop := make(chan bool)
-	t_start := make(chan int)
 
-	elevatorUpdate := make(chan Elevator, 2)
-	ordersRx := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
+	ID, _ := strconv.Atoi(id)
+
+	//initialize channels
+	drv_BtnChan := make(chan elevio.ButtonEvent)
+	drv_NewFloorChan := make(chan int)
+	drv_ObstrChan := make(chan bool)
+	drv_StopChan := make(chan bool)
+
+	slaveStateToMasterChan := make(chan Elevator, 2)
+	callsFromMasterChan := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
+
+	timerDurationChan := make(chan int)
 
 	//initialize timer
-	var t_end *time.Timer = time.NewTimer(0)
-	<-t_end.C
-	go timer(t_start, t_end)
+	var timer *time.Timer = time.NewTimer(0)
+	<-timer.C
+	go resetTimer(timerDurationChan, timer)
 
 	//initialize sensors
-	go elevio.PollButtons(drv_buttons)
-	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollObstructionSwitch(drv_obstr)
-	go elevio.PollStopButton(drv_stop)
+	go elevio.PollButtons(drv_BtnChan)
+	go elevio.PollFloorSensor(drv_NewFloorChan)
+	go elevio.PollObstructionSwitch(drv_ObstrChan)
+	go elevio.PollStopButton(drv_StopChan)
 
 	//initialize network
-	go network_buttonSender(drv_buttons, slaveToMasterOfflineButton, ID)
-	go network_broadcast(elevatorUpdate, slaveToMasterOfflineElevator)
-	go network_receiver(ordersRx, masterToSlaveOfflineCh, ID)
+	go buttonPressTx(drv_BtnChan, offlineSlaveBtnToMasterChan, ID)
+	go slaveStateTx(slaveStateToMasterChan, offlineSlaveStateToMasterChan)
+	go callsFromMasterRx(callsFromMasterChan, offlineCallsToSlaveChan, ID)
 
-	go fsm_fsm(ID, elevatorUpdate, ordersRx, drv_floors, drv_obstr, drv_stop, t_start, t_end)
+	//initialize fsm
+	go fsm(ID, slaveStateToMasterChan, callsFromMasterChan, drv_NewFloorChan, drv_ObstrChan, drv_StopChan, timerDurationChan, timer)
 }

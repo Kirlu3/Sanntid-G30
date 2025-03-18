@@ -11,7 +11,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
-// Contains arrays of all HallCalls and CabCalls
+// Arrays of all HallCalls and CabCalls
 type Calls struct {
 	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
 	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool
@@ -29,7 +29,7 @@ type AssignCalls struct {
 	AliveElevators [config.N_ELEVATORS]bool
 }
 
-// The added/removed calls we get from the slaveRx
+// The added/removed calls we get from the slaveReceiver
 type UpdateCalls struct {
 	Calls   Calls
 	AddCall bool
@@ -40,96 +40,98 @@ type UpdateCalls struct {
 // struct{Calls Calls; AddCall bool}
 
 /*
-backupsTx transmitts calls read from the callsToBackupsCh channel to the backups
+callsToBackupsTx transmitts calls read from callsToBackupsChan to the backups.
 */
-func backupsTx(callsToBackupsCh <-chan Calls, initCalls Calls, Id int) {
-	masterCallsTx := make(chan struct {
+func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) {
+	callsToBackupTransmitter := make(chan struct {
 		Calls Calls
 		Id    int
 	})
-	go bcast.Transmitter(config.MasterCallsPort, masterCallsTx)
+	go bcast.Transmitter(config.MasterCallsPort, callsToBackupTransmitter)
 	calls := initCalls
 	for {
 		select {
-		case calls = <-callsToBackupsCh:
-			masterCallsTx <- BackupCalls{Calls: calls, Id: Id}
+		case calls = <-callsToBackupsChan:
+			callsToBackupTransmitter <- BackupCalls{Calls: calls, Id: Id}
 		case <-time.After(config.MasterMessagePeriodSeconds):
-			masterCallsTx <- BackupCalls{Calls: calls, Id: Id}
+			callsToBackupTransmitter <- BackupCalls{Calls: calls, Id: Id}
 		}
 	}
 
 }
 
 /*
-aliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the aliveBackups to the aliveBackupsCh.
+fromAliveBackupsRxr listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the alive backups to aliveBackupsChan.
 */
-func aliveBackupsRx(aliveBackupsCh chan<- []string) {
-	backupsUpdateCh := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.BackupsUpdatePort, backupsUpdateCh)
+func fromAliveBackupsRx(aliveBackupsChan chan<- []string) {
+	updateFromBackupsChan := make(chan peers.PeerUpdate)
+	go peers.Receiver(config.BackupsUpdatePort, updateFromBackupsChan)
 	var aliveBackups []string
 	for {
-		a := <-backupsUpdateCh
+		update := <-updateFromBackupsChan
 		fmt.Printf("Backups update:\n")
-		fmt.Printf("  Backups:    %q\n", a.Peers)
-		fmt.Printf("  New:        %q\n", a.New)
-		fmt.Printf("  Lost:       %q\n", a.Lost)
-		aliveBackups = a.Peers
-		if len(a.Lost) != 0 || a.New != "" {
-			aliveBackupsCh <- aliveBackups
+		fmt.Printf("  Backups:    %q\n", update.Peers)
+		fmt.Printf("  New:        %q\n", update.New)
+		fmt.Printf("  Lost:       %q\n", update.Lost)
+		aliveBackups = update.Peers
+		if len(update.Lost) != 0 || update.New != "" {
+			aliveBackupsChan <- aliveBackups
 		}
 	}
 }
 
 /*
-backupAckRx starts goroutines to manage backup synchronization. It looks for other masters, tracks the status of alive backups, and sends call assignments to backups as needed.
+backupCoordinator starts goroutines to manage backup synchronization. It looks for other masters, tracks the status of alive backups, and sends call assignments to backups as needed.
 
 This routine handles acknowledgments from alive backups, ensuring that all backups are synchronized with the current set of calls before turning the button lights on.
 It also manages the reassignment of calls when necessary.
 */
-func backupAckRx(
-	callsUpdateCh <-chan struct {
+func backupCoordinator(
+	callsUpdateChan <-chan struct {
 		Calls   Calls
 		AddCall bool
 	},
-	callsToAssignCh chan<- struct {
+	callsToAssignChan chan<- struct {
 		Calls          Calls
 		AliveElevators [config.N_ELEVATORS]bool
 	},
 	calls Calls,
 	Id int,
 ) {
-	otherMasterCallsCh := make(chan struct {
+	otherMasterUpdateChan := make(chan struct {
 		Calls Calls
 		Id    int
 	})
-	aliveBackupsCh := make(chan []string)
-	callsToBackupsCh := make(chan Calls)
-	backupCallsRx := make(chan struct {
+	aliveBackupsChan := make(chan []string)
+	callsToBackupsTxChan := make(chan Calls)
+	callsFromBackupsRxChan := make(chan struct {
 		Calls Calls
 		Id    int
 	})
 
-	go bcast.Receiver(config.BackupsCallsPort, backupCallsRx)
-	go lookForOtherMasters(otherMasterCallsCh, Id)
-	go aliveBackupsRx(aliveBackupsCh)
-	go backupsTx(callsToBackupsCh, calls, Id)
+	go bcast.Receiver(config.BackupsCallsPort, callsFromBackupsRxChan)
+	go detectOtherMasters(otherMasterUpdateChan, Id)
+	go fromAliveBackupsRx(aliveBackupsChan)
+	go callsToBackupsTx(callsToBackupsTxChan, calls, Id)
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
-	wantReassignment := true //why?
+	wantReassignment := true
+
 mainLoop:
 	for {
 		select {
-		case callsUpdate := <-callsUpdateCh:
+		case callsUpdate := <-callsUpdateChan:
 			var newCalls Calls
 			if callsUpdate.AddCall {
 				newCalls = union(calls, callsUpdate.Calls)
 			} else {
 				newCalls = removeCalls(calls, callsUpdate.Calls)
 			}
+
 			if calls != newCalls {
 				calls = newCalls
-				callsToBackupsCh <- calls
+				callsToBackupsTxChan <- calls
 				wantReassignment = true
 
 				for i := range acksReceived {
@@ -142,28 +144,28 @@ mainLoop:
 		}
 
 		select {
-		case a := <-backupCallsRx: // set ack for backup if it has the same calls
-			if a.Calls == calls && !acksReceived[a.Id] {
-				fmt.Println("new backup state from", a.Id)
-				acksReceived[a.Id] = true
+		case callsFromBackup := <-callsFromBackupsRxChan: // set ack for backup if it has the same calls
+			if callsFromBackup.Calls == calls && !acksReceived[callsFromBackup.Id] {
+				fmt.Println("new backup state from", callsFromBackup.Id)
+				acksReceived[callsFromBackup.Id] = true
 			}
 		default:
 		}
 
 		select {
-		case aliveBackups = <-aliveBackupsCh:
+		case aliveBackups = <-aliveBackupsChan:
 			wantReassignment = true
 		default:
 		}
 
 		select {
-		case otherMasterCalls := <-otherMasterCallsCh:
-			if otherMasterCalls.Id < Id && isCallsSubset(calls, otherMasterCalls.Calls) {
+		case otherMasterUpdate := <-otherMasterUpdateChan:
+			if otherMasterUpdate.Id < Id && isCallsSubset(calls, otherMasterUpdate.Calls) {
 				fmt.Println("find a better way to restart the program")
 				os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42
-			} else if otherMasterCalls.Id > Id {
-				calls = union(calls, otherMasterCalls.Calls)
-				callsToBackupsCh <- calls
+			} else if otherMasterUpdate.Id > Id {
+				calls = union(calls, otherMasterUpdate.Calls)
+				callsToBackupsTxChan <- calls
 				wantReassignment = true
 			} else {
 				fmt.Println("couldn't end master phase: other master has not accepted our calls")
@@ -172,23 +174,23 @@ mainLoop:
 		}
 
 		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
-			i, _ := strconv.Atoi(backup)
-			if !acksReceived[i] {
+			backupId, _ := strconv.Atoi(backup)
+			if !acksReceived[backupId] {
 				continue mainLoop
 			}
 		}
 		if wantReassignment {
 			fmt.Println("BC: Sending calls")
-			var AliveElevators [config.N_ELEVATORS]bool
-			for _, elev := range aliveBackups {
-				idx, err := strconv.Atoi(elev)
+			var aliveElevators [config.N_ELEVATORS]bool
+			for _, backup := range aliveBackups {
+				backupId, err := strconv.Atoi(backup)
 				if err != nil {
 					panic("BC got weird aliveElev")
 				}
-				AliveElevators[idx] = true
+				aliveElevators[backupId] = true // if the backup is alive, then the elevator with the same id is alive
 			}
-			AliveElevators[Id] = true
-			callsToAssignCh <- AssignCalls{Calls: calls, AliveElevators: AliveElevators}
+			aliveElevators[Id] = true
+			callsToAssignChan <- AssignCalls{Calls: calls, AliveElevators: aliveElevators}
 			wantReassignment = false
 		}
 	}

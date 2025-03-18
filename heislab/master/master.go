@@ -12,33 +12,34 @@ import (
 func Master(
 	initCalls Calls,
 	Id int,
-	masterToSlaveOfflineCh chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	slaveToMasterOfflineButton <-chan slave.ButtonMessage,
-	slaveToMasterOfflineElevator <-chan slave.Elevator,
+	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
+	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 ) {
 	fmt.Println(Id, "entered master mode")
 
-	callsUpdateCh := make(chan struct {
+	callsUpdateChan := make(chan struct {
 		Calls   Calls
 		AddCall bool
 	}, 2)
-	callsToAssignCh := make(chan struct {
+
+	callsToAssignChan := make(chan struct {
 		Calls          Calls
 		AliveElevators [config.N_ELEVATORS]bool
 	})
 
-	stateUpdateCh := make(chan slave.Elevator)
-	assignmentsToSlaveCh := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	masterTxEnable := make(chan bool)
+	slaveStateUpdateChan := make(chan slave.Elevator)
+	callsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	enableMasterTxChan := make(chan bool)
 
-	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), masterTxEnable)
+	go peers.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
 
-	go backupAckRx(callsUpdateCh, callsToAssignCh, initCalls, Id)
-	go assignOrders(stateUpdateCh, callsToAssignCh, assignmentsToSlaveCh)
+	go backupCoordinator(callsUpdateChan, callsToAssignChan, initCalls, Id)
+	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan)
 
-	go receiveButtonPress(callsUpdateCh, slaveToMasterOfflineButton)
-	go receiveElevatorUpdate(stateUpdateCh, callsUpdateCh, slaveToMasterOfflineElevator)
-	go sendMessagesToSlaves(assignmentsToSlaveCh, masterToSlaveOfflineCh)
+	go buttonPressRx(callsUpdateChan, offlineSlaveBtnToMasterChan)
+	go slaveStateUpdateRx(slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan)
+	go callsToSlavesTx(callsToSlaveChan, offlineCallsToSlaveChan)
 
 	// the program is crashed and restarted when it should go back to backup mode
 	select {}
