@@ -20,6 +20,6 @@ const (
 
 	BroadcastMessagePeriodMs = 100
 
-	ResendPeriodMs  = 500
-	ResendTimeoutMs = 5000
+	ResendPeriodMs  = 100
+	ResendTimeoutMs = 2000
 )
