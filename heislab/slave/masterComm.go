@@ -9,8 +9,8 @@ import (
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
+	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/peers"
 )
 
 type ButtonMessage struct {
@@ -33,9 +33,9 @@ func buttonPressTx(drv_BtnChan <-chan elevio.ButtonEvent, offlineSlaveBtnToMaste
 	var outgoingMessage ButtonMessage
 	var mu sync.Mutex //The chance this is necessary is extremely low, but it doesn't hurt
 
-	masterUpdateRxChan := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	var masterUpdate peers.PeerUpdate
+	masterUpdateRxChan := make(chan alive.AliveUpdate)
+	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	var masterUpdate alive.AliveUpdate
 
 mainLoop:
 	for {
@@ -45,7 +45,7 @@ mainLoop:
 		case btnPress := <-drv_BtnChan:
 			fmt.Println("STx: Button Pressed")
 
-			if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(ID) {
+			if len(masterUpdate.Alive) == 0 || masterUpdate.Alive[0] == strconv.Itoa(ID) {
 				select {
 				case offlineSlaveBtnToMasterChan <- ButtonMessage{0, ID, btnPress}:
 					continue mainLoop
@@ -112,9 +112,9 @@ func slaveStateTx(slaveStateToMasterChan <-chan Elevator, offlineSlaveStateToMas
 	go bcast.Transmitter(config.SlaveBasePort+5, slaveStateTxChan)
 	var slaveState Elevator
 
-	masterUpdateRxChan := make(chan peers.PeerUpdate)
-	go peers.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	var masterUpdate peers.PeerUpdate
+	masterUpdateRxChan := make(chan alive.AliveUpdate)
+	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	var masterUpdate alive.AliveUpdate
 
 mainLoop:
 	for {
@@ -127,7 +127,7 @@ mainLoop:
 			//Do nothing
 		}
 
-		if len(masterUpdate.Peers) == 0 || masterUpdate.Peers[0] == strconv.Itoa(slaveState.ID) {
+		if len(masterUpdate.Alive) == 0 || masterUpdate.Alive[0] == strconv.Itoa(slaveState.ID) {
 			select {
 			case offlineSlaveStateToMasterChan <- slaveState:
 				continue mainLoop
