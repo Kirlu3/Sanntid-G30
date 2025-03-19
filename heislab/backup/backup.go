@@ -37,9 +37,9 @@ func Backup(id string) master.Calls {
 	go alive.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
 	go alive.Receiver(config.BackupsUpdatePort, backupsUpdateRxChan)
 
-	go bcast.Transmitter(config.BackupsCallsPort, backupCallsTxChan)
+	go bcast.Transmitter(config.BackupsBroadcastPort, backupCallsTxChan)
 
-	go bcast.Receiver(config.MasterCallsPort, masterCallsRxChan)
+	go bcast.Receiver(config.MasterBroadcastPort, masterCallsRxChan)
 
 	fmt.Println("Backup Started: ", id)
 	var backupsUpdate alive.AliveUpdate

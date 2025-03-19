@@ -40,52 +40,34 @@ type UpdateCalls struct {
 // struct{Calls Calls; AddCall bool}
 
 /*
-callsToBackupsTx transmitts calls read from callsToBackupsChan to the backups.
+# Broadcasts all active calls to the backups
+
+Receives calls on the callsToBackupsChan and broadcasts on the MasterBroadcastPort
 */
 func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) {
-	callsToBackupTransmitter := make(chan struct {
+	callsToBackupTx := make(chan struct {
 		Calls Calls
 		Id    int
 	})
-	go bcast.Transmitter(config.MasterCallsPort, callsToBackupTransmitter)
+	go bcast.Transmitter(config.MasterBroadcastPort, callsToBackupTx)
 	calls := initCalls
 	for {
 		select {
 		case calls = <-callsToBackupsChan:
-			callsToBackupTransmitter <- BackupCalls{Calls: calls, Id: Id}
+			callsToBackupTx <- BackupCalls{Calls: calls, Id: Id}
 		case <-time.After(config.MasterMessagePeriodMs * time.Millisecond):
-			callsToBackupTransmitter <- BackupCalls{Calls: calls, Id: Id}
+			callsToBackupTx <- BackupCalls{Calls: calls, Id: Id}
 		}
 	}
 
 }
 
 /*
-fromAliveBackupsRx listens the BackupsUpdatePort (from config) and if a backup is lost or reconnected, the function sends a list of the alive backups to aliveBackupsChan.
-*/
-func fromAliveBackupsRx(aliveBackupsChan chan<- []string) {
-	updateFromBackupsChan := make(chan alive.AliveUpdate)
-	go alive.Receiver(config.BackupsUpdatePort, updateFromBackupsChan)
-	var aliveBackups []string
-	for update := range updateFromBackupsChan {
-		fmt.Printf("Backups update:\n")
-		fmt.Printf("  Backups:    %q\n", update.Alive)
-		fmt.Printf("  New:        %q\n", update.New)
-		fmt.Printf("  Lost:       %q\n", update.Lost)
-		aliveBackups = update.Alive
-		if len(update.Lost) != 0 || update.New != "" {
-			aliveBackupsChan <- aliveBackups
-		}
-	}
-}
+# Listens to both the backup and master broadcast ports and ensures acknowledgments on all active calls
 
-/*
-backupCoordinator starts goroutines to manage backup synchronization. It looks for other masters, tracks the status of alive backups, and sends call assignments to backups as needed.
-
-This routine handles acknowledgments from alive backups, ensuring that all backups are synchronized with the current set of calls before turning the button lights on.
-It also manages the reassignment of calls when necessary.
+Will crash the program upon encountering another master of higher priority
 */
-func backupCoordinator(
+func callsFromBackupsRx(
 	callsUpdateChan <-chan struct {
 		Calls   Calls
 		AddCall bool
@@ -94,71 +76,43 @@ func backupCoordinator(
 		Calls          Calls
 		AliveElevators [config.N_ELEVATORS]bool
 	},
+	callsToBackupsTxChan chan<- Calls,
 	calls Calls,
-	Id int,
+	ownId int,
 ) {
-	otherMasterUpdateChan := make(chan struct {
+	masterBroadcastRxChan := make(chan struct {
 		Calls Calls
 		Id    int
 	})
-	aliveBackupsChan := make(chan []string)
-	callsToBackupsTxChan := make(chan Calls)
-	callsFromBackupsRxChan := make(chan struct {
+	backupBroadcastRxChan := make(chan struct {
 		Calls Calls
 		Id    int
 	})
+	aliveBackupsUpdateChan := make(chan alive.AliveUpdate)
 
-	go bcast.Receiver(config.BackupsCallsPort, callsFromBackupsRxChan)
-	go detectOtherMasters(otherMasterUpdateChan, Id)
-	go fromAliveBackupsRx(aliveBackupsChan)
-	go callsToBackupsTx(callsToBackupsTxChan, calls, Id)
+	go bcast.Receiver(config.MasterBroadcastPort, masterBroadcastRxChan)
+	go bcast.Receiver(config.BackupsBroadcastPort, backupBroadcastRxChan)
+	go alive.Receiver(config.BackupsUpdatePort, aliveBackupsUpdateChan)
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
-	wantReassignment := true
 
 mainLoop:
 	for {
 		select {
 		case callsUpdate := <-callsUpdateChan:
-			var newCalls Calls
-			if callsUpdate.AddCall {
-				newCalls = union(calls, callsUpdate.Calls)
-			} else {
-				newCalls = removeCalls(calls, callsUpdate.Calls)
-			}
+			calls, acksReceived = incomingCallsUpdate(calls, acksReceived, ownId, callsUpdate)
+			callsToBackupsTxChan <- calls
 
-			if calls != newCalls {
-				calls = newCalls
-				callsToBackupsTxChan <- calls
-				wantReassignment = true
+		case backupBroadcast := <-backupBroadcastRxChan: // set ack for backup if it has the same calls
+			acksReceived = incomingBackupBroadcast(calls, acksReceived, backupBroadcast)
 
-				for i := range acksReceived {
-					acksReceived[i] = false
-				}
-				acksReceived[Id] = true
-			}
+		case aliveBackupsUpdate := <-aliveBackupsUpdateChan:
+			aliveBackups = incomingAliveBackupsUpdate(aliveBackupsUpdate)
 
-		case callsFromBackup := <-callsFromBackupsRxChan: // set ack for backup if it has the same calls
-			if callsFromBackup.Calls == calls && !acksReceived[callsFromBackup.Id] {
-				fmt.Println("new backup state from", callsFromBackup.Id)
-				acksReceived[callsFromBackup.Id] = true
-			}
-
-		case aliveBackups = <-aliveBackupsChan:
-			wantReassignment = true
-
-		case otherMasterUpdate := <-otherMasterUpdateChan:
-			if otherMasterUpdate.Id < Id && isCallsSubset(calls, otherMasterUpdate.Calls) {
-				fmt.Println("find a better way to restart the program")
-				os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42
-			} else if otherMasterUpdate.Id > Id {
-				calls = union(calls, otherMasterUpdate.Calls)
-				callsToBackupsTxChan <- calls
-				wantReassignment = true
-			} else {
-				fmt.Println("couldn't end master phase: other master has not accepted our calls")
-			}
+		case masterBroadcast := <-masterBroadcastRxChan:
+			calls = incomingMasterBroadcast(calls, ownId, masterBroadcast)
+			callsToBackupsTxChan <- calls
 		}
 
 		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
@@ -167,21 +121,118 @@ mainLoop:
 				continue mainLoop
 			}
 		}
-		if wantReassignment {
-			fmt.Println("BC: Sending calls")
-			var aliveElevators [config.N_ELEVATORS]bool
-			for _, backup := range aliveBackups {
-				backupId, err := strconv.Atoi(backup)
-				if err != nil {
-					panic("BC got weird aliveElev")
-				}
-				aliveElevators[backupId] = true // if the backup is alive, then the elevator with the same id is alive
+
+		fmt.Println("BC: Sending calls")
+		var aliveElevators [config.N_ELEVATORS]bool
+		for _, backup := range aliveBackups {
+			backupId, err := strconv.Atoi(backup)
+			if err != nil {
+				panic("BC got weird aliveElev")
 			}
-			aliveElevators[Id] = true
-			callsToAssignChan <- AssignCalls{Calls: calls, AliveElevators: aliveElevators}
-			wantReassignment = false
+			aliveElevators[backupId] = true // if the backup is alive, then the elevator with the same id is alive
 		}
+		aliveElevators[ownId] = true
+		callsToAssignChan <- AssignCalls{Calls: calls, AliveElevators: aliveElevators}
 	}
+}
+
+/*
+# Called when there is an incoming calls update
+
+# Updates the calls and reset acksReceived if there was a change in calls
+
+Input: the active calls, the active acksReceived, the master's ID, and the callsUpdate to be processed
+
+Returns: updated calls and acksReceived
+*/
+func incomingCallsUpdate(calls Calls, acksReceived [config.N_ELEVATORS]bool, ownID int, callsUpdate struct {
+	Calls   Calls
+	AddCall bool
+}) (Calls, [config.N_ELEVATORS]bool) {
+
+	var newCalls Calls
+	if callsUpdate.AddCall {
+		newCalls = addCalls(calls, callsUpdate.Calls)
+	} else {
+		newCalls = removeCalls(calls, callsUpdate.Calls)
+	}
+
+	if calls != newCalls {
+		calls = newCalls
+
+		for i := range acksReceived {
+			acksReceived[i] = false
+		}
+		acksReceived[ownID] = true
+	}
+	return calls, acksReceived
+}
+
+/*
+# Called when there is an incoming broadcast on the BackupBroadcastPort
+
+# updates acknowledgements if the calls match
+
+Input: the active calls, the active acksReceived, the incoming backupBroadcast
+
+Returns: updated acksReceived
+*/
+func incomingBackupBroadcast(calls Calls, acksReceived [config.N_ELEVATORS]bool, backupBroadcast struct {
+	Calls Calls
+	Id    int
+}) [config.N_ELEVATORS]bool {
+	if backupBroadcast.Calls == calls && !acksReceived[backupBroadcast.Id] {
+		fmt.Println("new backup state from", backupBroadcast.Id)
+		acksReceived[backupBroadcast.Id] = true
+	}
+	return acksReceived
+}
+
+/*
+# Called when there is an update of alive backups
+
+Pretty prints the update and returns the new set of alive backups
+*/
+func incomingAliveBackupsUpdate(aliveBackupsUpdate alive.AliveUpdate) []string {
+	fmt.Printf("Backups update:\n")
+	fmt.Printf("  Backups:    %q\n", aliveBackupsUpdate.Alive)
+	fmt.Printf("  New:        %q\n", aliveBackupsUpdate.New)
+	fmt.Printf("  Lost:       %q\n", aliveBackupsUpdate.Lost)
+	return aliveBackupsUpdate.Alive
+}
+
+/*
+# Called when a broadcast is received on the master port
+
+If the master hears itself: does nothing
+
+If it hears a master with lower priority: add it's calls
+
+If it hears a master with higher priority: die once it knows it's calls have been received
+
+Input: the active calls, the master's ID, and the incoming masterBroadcast
+
+Returns: updated calls
+*/
+func incomingMasterBroadcast(calls Calls, ownID int, masterBroadcast struct {
+	Calls Calls
+	Id    int
+}) Calls {
+
+	if masterBroadcast.Id == ownID {
+		//Do nothing
+	} else if masterBroadcast.Id > ownID {
+		calls = addCalls(calls, masterBroadcast.Calls)
+
+	} else if masterBroadcast.Id < ownID && isCallsSubset(calls, masterBroadcast.Calls) {
+		fmt.Println("find a better way to restart the program")
+		os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42
+
+	} else {
+		fmt.Println("couldn't end master phase: other master has not accepted our calls")
+	}
+
+	return calls
 }
 
 // returns true if calls1 is a subset of calls2
@@ -204,7 +255,7 @@ func isCallsSubset(calls1 Calls, calls2 Calls) bool {
 }
 
 // returns the union of the calls in calls1 and calls2
-func union(calls1 Calls, calls2 Calls) Calls {
+func addCalls(calls1 Calls, calls2 Calls) Calls {
 	var unionCalls Calls
 	for i := range config.N_ELEVATORS {
 		for j := range config.N_FLOORS {

@@ -8,12 +8,12 @@ const (
 
 // network
 const (
-	WatchdogPort      = 15500
-	MasterUpdatePort  = 30019
-	BackupsUpdatePort = 30029
-	MasterCallsPort   = 30039
-	BackupsCallsPort  = 30049
-	SlaveBasePort     = 40000
+	WatchdogPort         = 15500
+	MasterUpdatePort     = 30019
+	BackupsUpdatePort    = 30029
+	MasterBroadcastPort  = 30039
+	BackupsBroadcastPort = 30049
+	SlaveBasePort        = 40000
 
 	BackupMessagePeriodMs = 1
 	MasterMessagePeriodMs = 1
