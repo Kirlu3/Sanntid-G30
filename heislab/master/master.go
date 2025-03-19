@@ -34,11 +34,14 @@ func Master(
 
 	slaveStateUpdateChan := make(chan slave.Elevator)
 	callsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	callsToBackupsTxChan := make(chan Calls)
 	enableMasterTxChan := make(chan bool)
 
 	go alive.Transmitter(config.MasterUpdatePort, strconv.Itoa(Id), enableMasterTxChan)
 
-	go backupCoordinator(callsUpdateChan, callsToAssignChan, initialCalls, Id)
+	go callsFromBackupsRx(callsUpdateChan, callsToAssignChan, callsToBackupsTxChan, initialCalls, Id)
+	go callsToBackupsTx(callsToBackupsTxChan, initialCalls, Id)
+
 	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, Id)
 
 	go buttonPressRx(callsUpdateChan, offlineSlaveBtnToMasterChan)
