@@ -13,3 +13,5 @@ TODO: general cleanup and code quality when we have time
 
 bugs: 
 elevator doesnt clear hall calls at current floor after becoming unobstructed, maybe related to floorarrival method of clearing calls? <- test this
+
+TODO: consider if the assigner should wait for first calls message before trying to assign (if not it would only assign nothing)
