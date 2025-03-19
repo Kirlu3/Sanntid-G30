@@ -72,6 +72,6 @@ func TestAssigner(t *testing.T) {
 	if err := os.Chdir("../../"); err != nil {
 		log.Fatalf("Failed to change directory: %v", err)
 	}
-	assign(elevators, callsToAssign)
+	assign(elevators, callsToAssign.Calls, callsToAssign.AliveElevators)
 
 }
