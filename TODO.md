@@ -5,6 +5,8 @@ The master calls recursive go routines, we should try to avoid this. This is esp
 
 TODO: changing either everything, or everything in fsm to include or not include prefixes
 
+TODO: realized the door timer should be set differently. Per now it needs 3 seconds without anything happening in the fsm to close. 
+
 TODO: ensure we all agree with naming and ensure we're consistent and it makes sense everywhere.
 
 TODO: make own FAT test based on project specs
