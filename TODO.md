@@ -11,7 +11,7 @@ TODO: ensure we all agree with naming and ensure we're consistent and it makes s
 
 TODO: make own FAT test based on project specs
 
-TODO: general cleanup and code quality when we have time
+TODO: general cleanup and code quality when we have time (thing I realized, fix all the print statements)
 
 bugs: 
 elevator doesnt clear hall calls at current floor after becoming unobstructed, maybe related to floorarrival method of clearing calls? <- test this
