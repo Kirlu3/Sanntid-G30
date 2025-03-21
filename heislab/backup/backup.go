@@ -74,7 +74,7 @@ func Backup(id string) master.Calls {
 			fmt.Printf("  New:        %q\n", masterUpdate.New)
 			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
-		case <-time.After(time.Millisecond * config.BackupMessagePeriodMs):
+		case <-time.After(time.Millisecond * config.BackupBroadcastPeriodMs):
 		}
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
 		if len(masterUpdate.Alive) == 0 && (len(backupsUpdate.Alive) == 0 || slices.Min(backupsUpdate.Alive) == id) {

@@ -145,6 +145,6 @@ func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS]
 		default:
 			callsToSlavesTxChan <- callsToSlave
 		}
-		time.Sleep(time.Millisecond * time.Duration(config.BroadcastMessagePeriodMs))
+		time.Sleep(time.Millisecond * time.Duration(config.MasterBroadcastAssignedPeriodMs))
 	}
 }

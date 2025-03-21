@@ -6,7 +6,6 @@ const (
 	N_ELEVATORS = 3
 )
 
-// network
 const (
 	WatchdogPort         = 15500
 	MasterUpdatePort     = 30019
@@ -15,14 +14,16 @@ const (
 	BackupsBroadcastPort = 30049
 	SlaveBasePort        = 40000
 
-	BackupMessagePeriodMs = 1
-	MasterMessagePeriodMs = 1
-
-	BroadcastMessagePeriodMs = 10
+	BackupBroadcastPeriodMs         = 1
+	MasterBroadcastCallsPeriodMs    = 1
+	MasterBroadcastAssignedPeriodMs = 10
+	SlaveBroadcastPeriodMs          = 1
 
 	ResendPeriodMs  = 10
 	ResendTimeoutMs = 2000
+)
 
+const (
 	DoorOpenDuration  = 3
 	TimeBetweenFloors = 5
 )
