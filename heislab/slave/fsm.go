@@ -29,26 +29,26 @@ func fsm(ID int,
 	updateLights(elevator.Calls)
 
 	newElevator := initElevator(elevator)
-	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
+	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
 	for {
 		fmt.Println("FSM:New Loop")
-		activateElevatorIO(elevator, timerDurationChan)
+		activateElevatorIO(elevator)
 		select {
 		case newCalls := <-callsFromMasterChan:
 			fmt.Println("Slave: Updating orders")
 			elevator.Calls = newCalls
 			newElevator = fsm_onNewCalls(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
 		case floor := <-drv_NewFloorChan:
 			fmt.Println("FSM: Floor arrival", floor)
 			newElevator = fsm_onFloorArrival(floor, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
 		case obstr := <-drv_ObstrChan:
 			newElevator = fsm_onObstruction(obstr, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
 		case <-drv_StopChan:
 			fsm_onStopButtonPress()
@@ -56,7 +56,7 @@ func fsm(ID int,
 		case <-timer.C:
 			fmt.Println("FSM: Timer end")
 			newElevator = fsm_onTimerEnd(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 		}
 	}
 }

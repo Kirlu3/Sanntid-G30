@@ -12,17 +12,15 @@ import (
 
 Input: The elevator with updated state and timerDurationChan that starts a timer with the specified duration in seconds.
 */
-func activateElevatorIO(elevator Elevator, timerDurationChan chan int) {
+func activateElevatorIO(elevator Elevator) {
 
 	elevio.SetFloorIndicator(elevator.Floor) //Floor IO
 
 	switch elevator.Behaviour {
 	case EB_DoorOpen:
-		timerDurationChan <- doorOpenDuration
 		elevio.SetDoorOpenLamp(true)
 		elevio.SetMotorDirection(elevio.MD_Stop)
 	case EB_Moving:
-		timerDurationChan <- timeBetweenFloors
 		elevio.SetDoorOpenLamp(false)
 		elevio.SetMotorDirection(elevio.MotorDirection(elevator.Direction))
 	case EB_Idle:

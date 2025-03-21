@@ -22,4 +22,7 @@ const (
 
 	ResendPeriodMs  = 10
 	ResendTimeoutMs = 2000
+
+	DoorOpenDuration  = 3
+	TimeBetweenFloors = 5
 )

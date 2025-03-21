@@ -7,11 +7,6 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
-const (
-	doorOpenDuration  int = 3
-	timeBetweenFloors int = 5
-)
-
 type ElevatorBehaviour int
 
 const (
@@ -62,10 +57,20 @@ Input: The new elevator struct, the old elevator struct, the channel to send mes
 
 Returns: The updated elevator struct
 */
-func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator) Elevator {
+func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator, timerDurationChan chan<- int) Elevator {
 	if validElevator(newElevator) {
 		fmt.Println("Valid elevator")
 		slaveStateToMasterChan <- newElevator
+
+		switch newElevator.Behaviour {
+		case EB_DoorOpen:
+			if newElevator.Calls != elevator.Calls {
+				timerDurationChan <- config.DoorOpenDuration
+			}
+		case EB_Moving:
+			timerDurationChan <- config.TimeBetweenFloors
+		}
+
 		return newElevator
 	}
 	return elevator
