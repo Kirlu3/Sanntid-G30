@@ -159,28 +159,28 @@ func callsFromMasterRx(
 		}
 	}()
 
-	var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	//var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 
 	for newCalls := range callsFromMasterRxChan {
-		if newCalls != prevCalls {
-			fmt.Println("SRx: Received New Message")
-			prevCalls = newCalls
-			callsFromMasterChan <- newCalls[ID]
+		//if newCalls != prevCalls {
+		fmt.Println("SRx: Received New Message")
+		//prevCalls = newCalls
+		callsFromMasterChan <- newCalls[ID]
 
-			newLights := [config.N_FLOORS][config.N_BUTTONS]bool{}
+		newLights := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
-			for elevator := range config.N_ELEVATORS {
-				for floor := range config.N_FLOORS {
-					newLights[floor][elevio.BT_Cab] = newCalls[ID][floor][elevio.BT_Cab]
-					newLights[floor][elevio.BT_HallUp] = newLights[floor][elevio.BT_HallUp] || newCalls[elevator][floor][elevio.BT_HallUp]
-					newLights[floor][elevio.BT_HallDown] = newLights[floor][elevio.BT_HallDown] || newCalls[elevator][floor][elevio.BT_HallDown]
-				}
+		for elevator := range config.N_ELEVATORS {
+			for floor := range config.N_FLOORS {
+				newLights[floor][elevio.BT_Cab] = newCalls[ID][floor][elevio.BT_Cab]
+				newLights[floor][elevio.BT_HallUp] = newLights[floor][elevio.BT_HallUp] || newCalls[elevator][floor][elevio.BT_HallUp]
+				newLights[floor][elevio.BT_HallDown] = newLights[floor][elevio.BT_HallDown] || newCalls[elevator][floor][elevio.BT_HallDown]
 			}
-			updateLights(newLights)
-
-		} else {
-			continue
 		}
+		updateLights(newLights)
+
+		//} else {
+		//continue
+		//}
 	}
 }
 
