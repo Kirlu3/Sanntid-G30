@@ -66,6 +66,7 @@ func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMa
 		case EB_DoorOpen:
 			if newElevator.Calls != elevator.Calls || newElevator.Obstruction {
 				timerDurationChan <- config.DoorOpenDuration
+				fmt.Println("set door timer")
 			}
 		case EB_Moving:
 			timerDurationChan <- config.TimeBetweenFloors
@@ -135,6 +136,9 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 		if callsAboveElevator(elevator) {
 			return D_Up, EB_Moving
 		} else if callsAtCurrentFloor(elevator) {
+			if elevator.Calls[elevator.Floor][elevio.BT_HallUp] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
+				return D_Up, EB_DoorOpen
+			}
 			return D_Down, EB_DoorOpen
 		} else if callsBelowElevator(elevator) {
 			return D_Down, EB_Moving
@@ -145,6 +149,9 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 		if callsBelowElevator(elevator) {
 			return D_Down, EB_Moving
 		} else if callsAtCurrentFloor(elevator) {
+			if elevator.Calls[elevator.Floor][elevio.BT_HallDown] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
+				return D_Down, EB_DoorOpen
+			}
 			return D_Up, EB_DoorOpen
 		} else if callsAboveElevator(elevator) {
 			return D_Up, EB_Moving
@@ -211,10 +218,13 @@ func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.Calls[elevator.Floor][elevio.BT_Cab] = false
 	switch elevator.Direction {
 	case D_Up:
+		fmt.Println("D_Up")
 		elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
 	case D_Down:
+		fmt.Println("D_Down")
 		elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
 	default:
+		fmt.Println("D_Stop")
 		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] {
 			elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
 			elevator.Direction = D_Up

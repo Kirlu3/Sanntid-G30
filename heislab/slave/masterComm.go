@@ -63,12 +63,12 @@ mainLoop:
 			ackTimeoutChan <- msgID
 
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendTimeoutMs), func() {
-				fmt.Println("STx: Message timeout", msgID)
+				//fmt.Println("STx: Message timeout", msgID)
 				mu.Lock()
 				oldLen := len(needAck)
 				needAck = removeMsgFromNeedAck(needAck, msgID)
 				if len(needAck) == oldLen {
-					fmt.Println("STx: Ack previously received")
+					//fmt.Println("STx: Ack previously received")
 				}
 				mu.Unlock()
 			})
@@ -81,14 +81,14 @@ mainLoop:
 
 		case msgID := <-ackTimeoutChan:
 			// fmt.Println("STx: Waiting for ack")
-			fmt.Println("STx: Starting timer")
+			//fmt.Println("STx: Starting timer")
 			//Potential for race condition on needAck
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
-				fmt.Println("STx: Ack timeout")
+				//fmt.Println("STx: Ack timeout")
 				mu.Lock()
 				for i := range len(needAck) {
 					if needAck[i].MsgID == msgID {
-						fmt.Println("STx: Resending message", msgID)
+						//fmt.Println("STx: Resending message", msgID)
 						SlaveBtnToMasterTxChan <- needAck[i]
 						ackTimeoutChan <- msgID
 						break

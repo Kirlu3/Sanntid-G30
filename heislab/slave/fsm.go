@@ -84,7 +84,7 @@ Input: the old elevator object with updated calls
 Returns: the new elevator object with updated direction and behaviour
 */
 func fsm_onNewCalls(elevator Elevator) Elevator {
-	fmt.Println("onRequest")
+	fmt.Println("onRequest, behaviour:", elevator.Behaviour)
 	switch elevator.Behaviour {
 	case EB_Idle:
 		direction, behaviour := chooseElevatorDirection(elevator)
