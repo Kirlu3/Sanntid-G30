@@ -148,7 +148,6 @@ Returns: the elevator object with updated state depending on obstruction.
 func fsm_onObstruction(obstruction bool, elevator Elevator) Elevator {
 	fmt.Println("onObstruction")
 	elevator.Obstruction = obstruction
-	elevator.Stuck = obstruction
 	return elevator
 }
 
@@ -176,12 +175,15 @@ func fsm_onTimerEnd(elevator Elevator) Elevator {
 		fmt.Println("FSM:onTimerEnd DO")
 
 		if !elevator.Obstruction {
+			elevator.Stuck = false
 			direction, behaviour := chooseElevatorDirection(elevator)
 			elevator.Direction = direction
 			elevator.Behaviour = behaviour
 			if elevator.Behaviour == EB_DoorOpen {
 				elevator = clearCallsAtCurrentFloor(elevator)
 			}
+		} else {
+			elevator.Stuck = true
 		}
 	case EB_Moving:
 		fmt.Println("FSM:onTimerEnd M")

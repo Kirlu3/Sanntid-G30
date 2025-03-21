@@ -64,7 +64,7 @@ func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMa
 
 		switch newElevator.Behaviour {
 		case EB_DoorOpen:
-			if newElevator.Calls != elevator.Calls {
+			if newElevator.Calls != elevator.Calls || newElevator.Obstruction {
 				timerDurationChan <- config.DoorOpenDuration
 			}
 		case EB_Moving:

@@ -44,7 +44,7 @@ callsToAssignChan receives the calls that should be assigned and a list over the
 
 callsToSlaveChan sends the assigned orders to the function that handles sending them to the slaves
 */
-func assignCalls( //slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan
+func assignCalls(
 	slaveStateUpdateChan <-chan slave.Elevator,
 	callsToAssignChan <-chan struct {
 		Calls          Calls
