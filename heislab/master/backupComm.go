@@ -75,7 +75,7 @@ func callsFromBackupsRx(
 		AliveElevators [config.N_ELEVATORS]bool
 	},
 	callsToBackupsTxChan chan<- Calls,
-	calls Calls,
+	initCalls Calls,
 	ownId int,
 ) {
 	masterBroadcastRxChan := make(chan struct {
@@ -94,6 +94,8 @@ func callsFromBackupsRx(
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
+
+	calls := initCalls
 	callsToBackupsTxChan <- calls
 
 mainLoop:
