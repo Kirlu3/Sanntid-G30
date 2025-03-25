@@ -86,7 +86,9 @@ func onNewCalls(elevator Elevator) Elevator {
 			elevator = clearCallsAtCurrentFloor(elevator)
 		}
 	case EB_DoorOpen:
-		elevator = clearCallsAtCurrentFloor(elevator)
+		if !elevator.Obstruction {
+			elevator = clearCallsAtCurrentFloor(elevator)
+		}
 	}
 
 	return elevator
