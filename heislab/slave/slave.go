@@ -14,6 +14,8 @@ func Slave(
 	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	offlineSlaveBtnToMasterChan chan<- ButtonMessage,
 	offlineSlaveStateToMasterChan chan<- Elevator,
+	startSendingBtnOfflineChan <-chan struct{},
+	startSendingStateOfflineChan <-chan struct{},
 ) {
 
 	ID, _ := strconv.Atoi(id)
@@ -41,8 +43,8 @@ func Slave(
 	go elevio.PollStopButton(drv_StopChan)
 
 	//initialize network
-	go buttonPressTx(drv_BtnChan, offlineSlaveBtnToMasterChan, ID)
-	go slaveStateTx(slaveStateToMasterChan, offlineSlaveStateToMasterChan)
+	go buttonPressTx(drv_BtnChan, offlineSlaveBtnToMasterChan, startSendingBtnOfflineChan, ID)
+	go slaveStateTx(slaveStateToMasterChan, offlineSlaveStateToMasterChan, startSendingStateOfflineChan)
 	go callsFromMasterRx(callsFromMasterChan, offlineCallsToSlaveChan, ID)
 
 	//initialize fsm

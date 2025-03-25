@@ -3,13 +3,11 @@ package slave
 import (
 	"fmt"
 	"math/rand/v2"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
-	"github.com/Kirlu3/Sanntid-G30/heislab/network/alive"
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 )
 
@@ -22,7 +20,12 @@ type ButtonMessage struct {
 /*
 buttonPressTx transmitts buttonpresses to the master until an aknowledgement for the message is received.
 */
-func buttonPressTx(drv_BtnChan <-chan elevio.ButtonEvent, offlineSlaveBtnToMasterChan chan<- ButtonMessage, ID int) {
+func buttonPressTx(
+	drv_BtnChan <-chan elevio.ButtonEvent,
+	offlineSlaveBtnToMasterChan chan<- ButtonMessage,
+	startSendingBtnOfflineChan <-chan struct{},
+	ID int,
+) {
 	SlaveBtnToMasterTxChan := make(chan ButtonMessage)
 	ackRxChan := make(chan int)
 	go bcast.Transmitter(config.SlaveButtonPort, SlaveBtnToMasterTxChan)
@@ -33,24 +36,18 @@ func buttonPressTx(drv_BtnChan <-chan elevio.ButtonEvent, offlineSlaveBtnToMaste
 	var outgoingMessage ButtonMessage
 	var mu sync.Mutex //Removes all possibility of a race condition
 
-	masterUpdateRxChan := make(chan alive.AliveUpdate)
-	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	var masterUpdate alive.AliveUpdate
-
+	sendUDP := true
 mainLoop:
 	for {
 		select {
-		case masterUpdate = <-masterUpdateRxChan:
-			continue mainLoop
+		case <-startSendingBtnOfflineChan:
+			sendUDP = false
 		case btnPress := <-drv_BtnChan:
 			fmt.Println("STx: Button Pressed")
 
-			if len(masterUpdate.Alive) == 0 || masterUpdate.Alive[0] == strconv.Itoa(ID) {
-				select {
-				case offlineSlaveBtnToMasterChan <- ButtonMessage{0, ID, btnPress}:
-					continue mainLoop
-				case <-time.After(time.Millisecond * 100):
-				}
+			if !sendUDP {
+				offlineSlaveBtnToMasterChan <- ButtonMessage{0, ID, btnPress}
+				continue mainLoop
 			}
 
 			fmt.Println("STx: Sending Button")
@@ -107,34 +104,29 @@ If the master is in offline mode, the state of the elevator is sent to the chann
 Otherwise, the state is broadcasted to the master.
 The function continuously checks for master updates and ensures that the elevator's state is transmitted at regular intervals.
 */
-func slaveStateTx(slaveStateToMasterChan <-chan Elevator, offlineSlaveStateToMasterChan chan<- Elevator) {
+func slaveStateTx(
+	slaveStateToMasterChan <-chan Elevator,
+	offlineSlaveStateToMasterChan chan<- Elevator,
+	startSendingStateOfflineChan <-chan struct{},
+) {
 	slaveStateTxChan := make(chan Elevator)
 	go bcast.Transmitter(config.SlaveBroadcastPort, slaveStateTxChan)
 	var slaveState Elevator
 
-	masterUpdateRxChan := make(chan alive.AliveUpdate)
-	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	var masterUpdate alive.AliveUpdate
-
-mainLoop:
+	sendUDP := true
 	for {
 		select {
-		case masterUpdate = <-masterUpdateRxChan:
-			//Do nothing
+		case <-startSendingStateOfflineChan:
+			sendUDP = false
 		case slaveState = <-slaveStateToMasterChan:
-			//Do nothing
 		case <-time.After(time.Millisecond * time.Duration(config.SlaveBroadcastPeriodMs)):
-			//Do nothing
 		}
 
-		if len(masterUpdate.Alive) == 0 || masterUpdate.Alive[0] == strconv.Itoa(slaveState.ID) {
-			select {
-			case offlineSlaveStateToMasterChan <- slaveState:
-				continue mainLoop
-			case <-time.After(time.Millisecond * 100):
-			}
+		if sendUDP {
+			slaveStateTxChan <- slaveState
+		} else {
+			offlineSlaveStateToMasterChan <- slaveState
 		}
-		slaveStateTxChan <- slaveState
 	}
 }
 

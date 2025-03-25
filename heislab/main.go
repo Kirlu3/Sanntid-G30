@@ -31,9 +31,16 @@ func main() {
 	offlineSlaveBtnToMasterChan := make(chan slave.ButtonMessage)
 	offlineSlaveStateToMasterChan := make(chan slave.Elevator)
 
-	slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
+	startSendingBtnOfflineChan := make(chan struct{})
+	startSendingStateOfflineChan := make(chan struct{})
+
+	slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan, startSendingBtnOfflineChan, startSendingStateOfflineChan)
 
 	backedUpCalls := backup.Backup(*id)
+
+	startSendingBtnOfflineChan <- struct{}{}
+	startSendingStateOfflineChan <- struct{}{}
+
 	master.Master(backedUpCalls, *id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 
 	select {}
