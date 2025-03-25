@@ -155,11 +155,16 @@ func callsFromMasterRx(
 
 	var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	var newCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-
+	listenUDP := true
 	for {
-		select {
-		case newCalls = <-callsFromMasterRxChan:
-		case newCalls = <-offlineCallsToSlaveChan:
+		if listenUDP {
+			select {
+			case newCalls = <-callsFromMasterRxChan:
+			case newCalls = <-offlineCallsToSlaveChan:
+				listenUDP = false
+			}
+		} else {
+			newCalls = <-offlineCallsToSlaveChan
 		}
 
 		if newCalls != prevCalls {
