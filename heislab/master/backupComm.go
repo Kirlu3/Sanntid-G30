@@ -94,6 +94,7 @@ func callsFromBackupsRx(
 
 	var aliveBackups []string
 	var acksReceived [config.N_ELEVATORS]bool
+	callsToBackupsTxChan <- calls
 
 mainLoop:
 	for {
