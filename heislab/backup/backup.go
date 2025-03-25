@@ -18,6 +18,7 @@ If the backup loses connection with the master, it will transition to the master
 */
 func Backup(id string) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
+	enableBackupTxChan := make(chan bool)
 	backupCallsTxChan := make(chan struct {
 		Calls master.Calls
 		Id    int
@@ -28,6 +29,7 @@ func Backup(id string) master.Calls {
 	})
 
 	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
+	go alive.Transmitter(config.BackupsBroadcastPort, id, enableBackupTxChan)
 
 	go bcast.Transmitter(config.BackupsBroadcastPort, backupCallsTxChan)
 	go bcast.Receiver(config.MasterBroadcastPort, masterCallsRxChan)
@@ -56,6 +58,7 @@ func Backup(id string) master.Calls {
 		if len(masterUpdate.Alive) == 0 {
 			select {
 			case <-masterUpgradeCooldownTimer.C:
+				enableBackupTxChan <- false
 				return calls
 			default:
 			}
