@@ -130,7 +130,7 @@ func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS]
 	callsToSlavesTxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Transmitter(config.SlaveCallsPort, callsToSlavesTxChan)
 
-	var callsToSlave [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	callsToSlave := <-callsToSlaveChan
 	for {
 		select {
 		case callsToSlave = <-callsToSlaveChan:
