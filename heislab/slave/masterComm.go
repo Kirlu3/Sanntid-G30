@@ -31,7 +31,7 @@ func buttonPressTx(drv_BtnChan <-chan elevio.ButtonEvent, offlineSlaveBtnToMaste
 	ackTimeoutChan := make(chan int, 10)
 	var needAck []ButtonMessage
 	var outgoingMessage ButtonMessage
-	var mu sync.Mutex //The chance this is necessary is extremely low, but it doesn't hurt
+	var mu sync.Mutex //Removes all possibility of a race condition
 
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
 	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
@@ -54,7 +54,7 @@ mainLoop:
 			}
 
 			fmt.Println("STx: Sending Button")
-			msgID := rand.Int() //gives the message a random ID
+			msgID := rand.Int()
 			outgoingMessage = ButtonMessage{msgID, ID, btnPress}
 			SlaveBtnToMasterTxChan <- outgoingMessage
 			mu.Lock()
@@ -153,15 +153,15 @@ func callsFromMasterRx(
 	callsFromMasterRxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	go bcast.Receiver(config.SlaveBasePort-1, callsFromMasterRxChan)
 
-	go func() {
-		for newCalls := range offlineCallsToSlaveChan {
-			callsFromMasterRxChan <- newCalls
-		}
-	}()
-
 	var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	var newCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 
-	for newCalls := range callsFromMasterRxChan {
+	for {
+		select {
+		case newCalls = <-callsFromMasterRxChan:
+		case newCalls = <-offlineCallsToSlaveChan:
+		}
+
 		if newCalls != prevCalls {
 			fmt.Println("SRx: Received New Message")
 			prevCalls = newCalls
@@ -169,6 +169,7 @@ func callsFromMasterRx(
 
 			newLights := [config.N_FLOORS][config.N_BUTTONS]bool{}
 
+			//Gets all active calls for all elevators that can be displayed on the lights
 			for elevator := range config.N_ELEVATORS {
 				for floor := range config.N_FLOORS {
 					newLights[floor][elevio.BT_Cab] = newCalls[ID][floor][elevio.BT_Cab]
@@ -178,8 +179,6 @@ func callsFromMasterRx(
 			}
 			updateLights(newLights)
 
-		} else {
-			continue
 		}
 	}
 }

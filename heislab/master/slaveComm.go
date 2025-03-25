@@ -142,9 +142,8 @@ func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS]
 			fmt.Println(callsToSlave)
 			callsToSlavesTxChan <- callsToSlave
 			offlineCallsToSlaveChan <- callsToSlave
-		default:
+		case <-time.After(time.Millisecond * time.Duration(config.MasterBroadcastAssignedPeriodMs)):
 			callsToSlavesTxChan <- callsToSlave
 		}
-		time.Sleep(time.Millisecond * time.Duration(config.MasterBroadcastAssignedPeriodMs))
 	}
 }

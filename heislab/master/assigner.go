@@ -44,7 +44,7 @@ callsToAssignChan receives the calls that should be assigned and a list over the
 
 callsToSlaveChan sends the assigned orders to the function that handles sending them to the slaves
 */
-func assignCalls(
+func assigner(
 	slaveStateUpdateChan <-chan slave.Elevator,
 	callsToAssignChan <-chan struct {
 		Calls          Calls
@@ -54,13 +54,13 @@ func assignCalls(
 	masterId int,
 ) {
 
-	elevators := [config.N_ELEVATORS]slave.Elevator{} // consider waiting for state init
+	elevators := [config.N_ELEVATORS]slave.Elevator{}
 	callsToAssignUpdate := <-callsToAssignChan
 	calls := callsToAssignUpdate.Calls
 	aliveElevators := callsToAssignUpdate.AliveElevators
 
 	for i := range config.N_ELEVATORS {
-		elevators[i].ID = i // suggested fix to assigner init bug
+		elevators[i].ID = i
 	}
 
 	for {
@@ -80,7 +80,7 @@ func assignCalls(
 		if !slices.Contains(availableElevators[:], true) {
 			availableElevators[masterId] = true
 		}
-		assignedCalls := assign(elevators, calls, availableElevators)
+		assignedCalls := assignCalls(elevators, calls, availableElevators)
 		callsToSlaveChan <- assignedCalls
 		fmt.Println("As:Succeded")
 	}
@@ -99,7 +99,7 @@ Input: the masters view of the elevator states and the calls that should be assi
 
 Output: an array containing what calls go to which elevator
 */
-func assign(
+func assignCalls(
 	elevators [config.N_ELEVATORS]slave.Elevator,
 	calls Calls,
 	availableElevators [config.N_ELEVATORS]bool,
@@ -115,21 +115,18 @@ func assign(
 		panic("OS not supported")
 	}
 
-	input := transformInput(elevators, calls, availableElevators)
+	input := transformInputToJSON(elevators, calls, availableElevators)
 
 	fmt.Println("Input to assigner: ", string(input))
 
-	// assigns and returns output in json format
 	outputJsonFormat, errAssign := exec.Command("heislab/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
 		fmt.Println("Error occured when assigning: ", errAssign, ", output: ", string(outputJsonFormat))
 	}
 
-	// transforms output from json format to the correct ouputformat
-	output := transformOutput(outputJsonFormat, calls)
+	output := transformOutputFromJSON(outputJsonFormat, calls)
 
-	// make sure cab calls are not overwritten if elevator is stuck or not alive
 	for elev := range config.N_ELEVATORS {
 		for floor := range config.N_FLOORS {
 			output[elev][floor][elevio.BT_Cab] = calls.CabCalls[elev][floor]
@@ -146,7 +143,7 @@ Input: the state of the elevators and the calls that should be assigned
 
 Output: JSON encoding of the input
 */
-func transformInput(elevators [config.N_ELEVATORS]slave.Elevator, calls Calls, availableElevators [config.N_ELEVATORS]bool) []byte {
+func transformInputToJSON(elevators [config.N_ELEVATORS]slave.Elevator, calls Calls, availableElevators [config.N_ELEVATORS]bool) []byte {
 
 	input := HRAInput{
 		HallRequests: calls.HallCalls[:],
@@ -179,7 +176,7 @@ Input: JOSN encoding of the assigned calls
 
 Output: an array of the assigned calls
 */
-func transformOutput(outputJsonFormat []byte, calls Calls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
+func transformOutputFromJSON(outputJsonFormat []byte, calls Calls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
 	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
 	tempOutput := new(map[string][config.N_FLOORS][config.N_BUTTONS - 1]bool)
 

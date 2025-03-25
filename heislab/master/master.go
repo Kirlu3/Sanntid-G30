@@ -42,7 +42,7 @@ func Master(
 	go callsFromBackupsRx(callsUpdateChan, callsToAssignChan, callsToBackupsTxChan, initialCalls, Id)
 	go callsToBackupsTx(callsToBackupsTxChan, initialCalls, Id)
 
-	go assignCalls(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, Id)
+	go assigner(slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, Id)
 
 	go buttonPressRx(callsUpdateChan, offlineSlaveBtnToMasterChan)
 	go slaveStateUpdateRx(slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan)

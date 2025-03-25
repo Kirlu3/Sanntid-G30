@@ -59,7 +59,6 @@ func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) 
 			callsToBackupTx <- BackupCalls{Calls: calls, Id: Id}
 		}
 	}
-
 }
 
 /*
@@ -108,7 +107,11 @@ mainLoop:
 			acksReceived = incomingBackupBroadcast(calls, acksReceived, backupBroadcast)
 
 		case aliveBackupsUpdate := <-aliveBackupsUpdateChan:
-			aliveBackups = incomingAliveBackupsUpdate(aliveBackupsUpdate)
+			fmt.Printf("Backups update:\n")
+			fmt.Printf("  Backups:    %q\n", aliveBackupsUpdate.Alive)
+			fmt.Printf("  New:        %q\n", aliveBackupsUpdate.New)
+			fmt.Printf("  Lost:       %q\n", aliveBackupsUpdate.Lost)
+			aliveBackups = aliveBackupsUpdate.Alive
 
 		case masterBroadcast := <-masterBroadcastRxChan:
 			calls = incomingMasterBroadcast(calls, ownId, masterBroadcast)
@@ -186,19 +189,6 @@ func incomingBackupBroadcast(calls Calls, acksReceived [config.N_ELEVATORS]bool,
 		acksReceived[backupBroadcast.Id] = true
 	}
 	return acksReceived
-}
-
-/*
-# Called when there is an update of alive backups
-
-Pretty prints the update and returns the new set of alive backups
-*/
-func incomingAliveBackupsUpdate(aliveBackupsUpdate alive.AliveUpdate) []string {
-	fmt.Printf("Backups update:\n")
-	fmt.Printf("  Backups:    %q\n", aliveBackupsUpdate.Alive)
-	fmt.Printf("  New:        %q\n", aliveBackupsUpdate.New)
-	fmt.Printf("  Lost:       %q\n", aliveBackupsUpdate.Lost)
-	return aliveBackupsUpdate.Alive
 }
 
 /*
