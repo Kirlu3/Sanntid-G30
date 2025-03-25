@@ -129,12 +129,11 @@ Returns: The chosen direction and behaviour for the elevator
 func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBehaviour) {
 	switch elevator.Direction {
 	case D_Up:
-		if callsAboveElevator(elevator) {
+		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
+			return D_Up, EB_DoorOpen
+		} else if callsAboveElevator(elevator) {
 			return D_Up, EB_Moving
 		} else if callsAtCurrentFloor(elevator) {
-			if elevator.Calls[elevator.Floor][elevio.BT_HallUp] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
-				return D_Up, EB_DoorOpen
-			}
 			return D_Down, EB_DoorOpen
 		} else if callsBelowElevator(elevator) {
 			return D_Down, EB_Moving
@@ -142,12 +141,11 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 			return D_Up, EB_Idle
 		}
 	case D_Down:
-		if callsBelowElevator(elevator) {
+		if elevator.Calls[elevator.Floor][elevio.BT_HallDown] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
+			return D_Down, EB_DoorOpen
+		} else if callsBelowElevator(elevator) {
 			return D_Down, EB_Moving
 		} else if callsAtCurrentFloor(elevator) {
-			if elevator.Calls[elevator.Floor][elevio.BT_HallDown] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
-				return D_Down, EB_DoorOpen
-			}
 			return D_Up, EB_DoorOpen
 		} else if callsAboveElevator(elevator) {
 			return D_Up, EB_Moving
