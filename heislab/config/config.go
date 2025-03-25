@@ -24,6 +24,8 @@ const (
 
 	ResendPeriodMs  = 10
 	ResendTimeoutMs = 2000
+
+	CheckBackupAckMs = 50
 )
 
 const (
