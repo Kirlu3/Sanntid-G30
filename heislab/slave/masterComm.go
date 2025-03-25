@@ -161,7 +161,6 @@ func callsFromMasterRx(
 				}
 			}
 			updateLights(newLights)
-
 		}
 	}
 }

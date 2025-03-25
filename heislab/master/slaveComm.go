@@ -138,6 +138,7 @@ func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS]
 			offlineCallsToSlaveChan <- callsToSlave
 		case <-time.After(time.Millisecond * time.Duration(config.MasterBroadcastAssignedPeriodMs)):
 			callsToSlavesTxChan <- callsToSlave
+			offlineCallsToSlaveChan <- callsToSlave
 		}
 	}
 }
