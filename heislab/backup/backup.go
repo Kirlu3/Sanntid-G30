@@ -29,7 +29,7 @@ func Backup(id string) master.Calls {
 	})
 
 	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	go alive.Transmitter(config.BackupsBroadcastPort, id, enableBackupTxChan)
+	go alive.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
 
 	go bcast.Transmitter(config.BackupsBroadcastPort, backupCallsTxChan)
 	go bcast.Receiver(config.MasterBroadcastPort, masterCallsRxChan)
