@@ -31,14 +31,9 @@ func Backup(id string) master.Calls {
 
 	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
 
-	go alive.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
-	go alive.Receiver(config.BackupsUpdatePort, backupsUpdateRxChan)
-
 	go bcast.Transmitter(config.BackupsBroadcastPort, backupCallsTxChan)
-
 	go bcast.Receiver(config.MasterBroadcastPort, masterCallsRxChan)
 
-	var backupsUpdate alive.AliveUpdate
 	var masterUpdate alive.AliveUpdate
 	var calls master.Calls
 
@@ -55,8 +50,6 @@ func Backup(id string) master.Calls {
 			if len(masterUpdate.Alive) > 0 && strconv.Itoa(newCalls.Id) == masterUpdate.Alive[0] {
 				calls = newCalls.Calls
 			}
-		case backupsUpdate = <-backupsUpdateRxChan:
-
 		case masterUpdate = <-masterUpdateRxChan:
 
 		case <-time.After(time.Millisecond * config.BackupBroadcastPeriodMs):
