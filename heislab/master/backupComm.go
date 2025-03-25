@@ -114,7 +114,7 @@ mainLoop:
 		case masterBroadcast := <-masterBroadcastRxChan:
 			calls = incomingMasterBroadcast(calls, ownId, masterBroadcast)
 			callsToBackupsTxChan <- calls
-			//case <-time.After(config.MasterBroadcastCallsPeriodMs * time.Millisecond):
+		case <-time.After(config.MasterBroadcastCallsPeriodMs * time.Millisecond):
 		}
 
 		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
