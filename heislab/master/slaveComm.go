@@ -23,11 +23,11 @@ func buttonPressRx(
 ) {
 	//channel to receive button presses
 	btnPressRxChan := make(chan slave.ButtonMessage)
-	go bcast.Receiver(config.SlaveBasePort, btnPressRxChan)
+	go bcast.Receiver(config.SlaveButtonPort, btnPressRxChan)
 
 	//ack channel to send acknowledgments
 	ackTxChan := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort+10, ackTxChan)
+	go bcast.Transmitter(config.SlaveAckPort, ackTxChan)
 
 	var msgIDs []int
 	for {
@@ -66,7 +66,7 @@ func slaveStateUpdateRx(
 ) {
 	slaveStateUpdateRxChan := make(chan slave.Elevator)
 	elevators := [config.N_ELEVATORS]slave.Elevator{}
-	go bcast.Receiver(config.SlaveBasePort+5, slaveStateUpdateRxChan)
+	go bcast.Receiver(config.SlaveBroadcastPort, slaveStateUpdateRxChan)
 
 	var slaveStateUpdate slave.Elevator
 	for {
@@ -126,13 +126,13 @@ func makeAddCallsUpdate(btnMessage slave.ButtonMessage) UpdateCalls {
 }
 
 /*
-callsToSlaveTx transmitts the calls received on callsToSlaveChan to the slaves on the SlaveBasePort-1 port.
+callsToSlaveTx transmitts the calls received on callsToSlaveChan to the slaves on the SlaveCallsPort port.
 */
 func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
 
 	callsToSlavesTxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	go bcast.Transmitter(config.SlaveBasePort-1, callsToSlavesTxChan)
+	go bcast.Transmitter(config.SlaveCallsPort, callsToSlavesTxChan)
 
 	var callsToSlave [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	for {

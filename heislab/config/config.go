@@ -12,7 +12,11 @@ const (
 	BackupsUpdatePort    = 30029
 	MasterBroadcastPort  = 30039
 	BackupsBroadcastPort = 30049
-	SlaveBasePort        = 40000
+
+	SlaveBroadcastPort = 40000
+	SlaveButtonPort    = 40001
+	SlaveAckPort       = 40002
+	SlaveCallsPort     = 40003
 
 	BackupBroadcastPeriodMs         = 1
 	MasterBroadcastCallsPeriodMs    = 1

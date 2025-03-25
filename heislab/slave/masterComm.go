@@ -14,9 +14,9 @@ import (
 )
 
 type ButtonMessage struct {
-	MsgID    int                //Sends a unique ID for the message
-	ElevID   int                //Sends the ID of the elevator
-	BtnPress elevio.ButtonEvent //Sends a button press
+	MsgID    int
+	ElevID   int
+	BtnPress elevio.ButtonEvent
 }
 
 /*
@@ -25,8 +25,8 @@ buttonPressTx transmitts buttonpresses to the master until an aknowledgement for
 func buttonPressTx(drv_BtnChan <-chan elevio.ButtonEvent, offlineSlaveBtnToMasterChan chan<- ButtonMessage, ID int) {
 	SlaveBtnToMasterTxChan := make(chan ButtonMessage)
 	ackRxChan := make(chan int)
-	go bcast.Transmitter(config.SlaveBasePort, SlaveBtnToMasterTxChan)
-	go bcast.Receiver(config.SlaveBasePort+10, ackRxChan)
+	go bcast.Transmitter(config.SlaveButtonPort, SlaveBtnToMasterTxChan)
+	go bcast.Receiver(config.SlaveAckPort, ackRxChan)
 
 	ackTimeoutChan := make(chan int, 10)
 	var needAck []ButtonMessage
@@ -109,7 +109,7 @@ The function continuously checks for master updates and ensures that the elevato
 */
 func slaveStateTx(slaveStateToMasterChan <-chan Elevator, offlineSlaveStateToMasterChan chan<- Elevator) {
 	slaveStateTxChan := make(chan Elevator)
-	go bcast.Transmitter(config.SlaveBasePort+5, slaveStateTxChan)
+	go bcast.Transmitter(config.SlaveBroadcastPort, slaveStateTxChan)
 	var slaveState Elevator
 
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
@@ -151,7 +151,7 @@ func callsFromMasterRx(
 	ID int,
 ) {
 	callsFromMasterRxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
-	go bcast.Receiver(config.SlaveBasePort-1, callsFromMasterRxChan)
+	go bcast.Receiver(config.SlaveCallsPort, callsFromMasterRxChan)
 
 	var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
 	var newCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
