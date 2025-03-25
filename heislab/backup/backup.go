@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"slices"
 	"strconv"
 	"time"
 
@@ -63,7 +62,7 @@ func Backup(id string) master.Calls {
 		case <-time.After(time.Millisecond * config.BackupBroadcastPeriodMs):
 		}
 		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
-		if len(masterUpdate.Alive) == 0 && (len(backupsUpdate.Alive) == 0 || slices.Min(backupsUpdate.Alive) == id) {
+		if len(masterUpdate.Alive) == 0 {
 			select {
 			case <-masterUpgradeCooldownTimer.C:
 				enableBackupTxChan <- false
