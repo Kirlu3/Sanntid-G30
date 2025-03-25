@@ -16,7 +16,7 @@ type AliveUpdate struct {
 }
 
 const interval = 1 * time.Millisecond
-const timeout = 5000 * time.Millisecond
+const timeout = 4000 * time.Millisecond
 
 func Transmitter(port int, id string, transmitEnable <-chan bool) {
 
