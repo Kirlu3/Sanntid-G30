@@ -64,7 +64,7 @@ Input: elevator object
 Returns: the new elevator object with initialized direction and behaviour
 */
 func initElevator(elevator Elevator) Elevator {
-	elevator.Direction = D_Down
+	elevator.Direction = D_Up
 	elevator.Behaviour = EB_Moving
 	return elevator
 }
