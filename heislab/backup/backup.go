@@ -18,7 +18,6 @@ If the backup loses connection with the master, it will transition to the master
 */
 func Backup(id string) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
-	backupsUpdateRxChan := make(chan alive.AliveUpdate)
 	enableBackupTxChan := make(chan bool)
 	backupCallsTxChan := make(chan struct {
 		Calls master.Calls
