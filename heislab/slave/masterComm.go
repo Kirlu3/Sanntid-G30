@@ -1,7 +1,6 @@
 package slave
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"sync"
 	"time"
@@ -43,14 +42,12 @@ mainLoop:
 		case <-startSendingBtnOfflineChan:
 			sendUDP = false
 		case btnPress := <-drv_BtnChan:
-			fmt.Println("STx: Button Pressed")
 
 			if !sendUDP {
 				offlineSlaveBtnToMasterChan <- ButtonMessage{0, ID, btnPress}
 				continue mainLoop
 			}
 
-			fmt.Println("STx: Sending Button")
 			msgID := rand.Int()
 			outgoingMessage = ButtonMessage{msgID, ID, btnPress}
 			SlaveBtnToMasterTxChan <- outgoingMessage
@@ -60,32 +57,22 @@ mainLoop:
 			ackTimeoutChan <- msgID
 
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendTimeoutMs), func() {
-				//fmt.Println("STx: Message timeout", msgID)
 				mu.Lock()
-				oldLen := len(needAck)
 				needAck = removeMsgFromNeedAck(needAck, msgID)
-				if len(needAck) == oldLen {
-					//fmt.Println("STx: Ack previously received")
-				}
 				mu.Unlock()
 			})
 
 		case msgID := <-ackRxChan:
-			fmt.Println("STx: Received Ack", msgID)
 			mu.Lock()
 			needAck = removeMsgFromNeedAck(needAck, msgID)
 			mu.Unlock()
 
 		case msgID := <-ackTimeoutChan:
-			// fmt.Println("STx: Waiting for ack")
-			//fmt.Println("STx: Starting timer")
-			//Potential for race condition on needAck
+
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
-				//fmt.Println("STx: Ack timeout")
 				mu.Lock()
 				for i := range len(needAck) {
 					if needAck[i].MsgID == msgID {
-						//fmt.Println("STx: Resending message", msgID)
 						SlaveBtnToMasterTxChan <- needAck[i]
 						ackTimeoutChan <- msgID
 						break
@@ -160,7 +147,6 @@ func callsFromMasterRx(
 		}
 
 		if newCalls != prevCalls {
-			fmt.Println("SRx: Received New Message")
 			prevCalls = newCalls
 			callsFromMasterChan <- newCalls[ID]
 

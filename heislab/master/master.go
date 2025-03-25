@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -18,9 +17,8 @@ func Master(
 ) {
 	Id, err := strconv.Atoi(id_string)
 	if err != nil {
-		panic("master received invalid id")
+		panic("Master received invalid id")
 	}
-	fmt.Println(Id, "entered master mode")
 
 	callsUpdateChan := make(chan struct {
 		Calls   Calls

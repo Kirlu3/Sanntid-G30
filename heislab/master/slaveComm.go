@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"slices"
 	"time"
 
@@ -33,9 +32,7 @@ func buttonPressRx(
 	for {
 		select {
 		case newBtn := <-btnPressRxChan:
-			println("ST: Received button press")
 			ackTxChan <- newBtn.MsgID
-			fmt.Println("ST: Sent Ack", newBtn.MsgID)
 			if !slices.Contains(msgIDs, newBtn.MsgID) {
 				msgIDs = append(msgIDs, newBtn.MsgID)
 				// remove the oldest messageID if we've stored too many. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
@@ -45,7 +42,6 @@ func buttonPressRx(
 				callsUpdateChan <- makeAddCallsUpdate(newBtn)
 			}
 		case newBtn := <-offlineSlaveBtnToMasterChan:
-			println("ST: Received button press offline")
 			callsUpdateChan <- makeAddCallsUpdate(newBtn)
 		}
 	}
@@ -138,8 +134,6 @@ func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS]
 	for {
 		select {
 		case callsToSlave = <-callsToSlaveChan:
-			fmt.Println("ST: Newly assigned calls sent")
-			fmt.Println(callsToSlave)
 			callsToSlavesTxChan <- callsToSlave
 			offlineCallsToSlaveChan <- callsToSlave
 		case <-time.After(time.Millisecond * time.Duration(config.MasterBroadcastAssignedPeriodMs)):

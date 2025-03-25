@@ -1,8 +1,6 @@
 package slave
 
 import (
-	"fmt"
-
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
@@ -59,14 +57,12 @@ Returns: The updated elevator struct
 */
 func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator, timerDurationChan chan<- int) Elevator {
 	if validElevator(newElevator) {
-		fmt.Println("Valid elevator")
 		slaveStateToMasterChan <- newElevator
 
 		switch newElevator.Behaviour {
 		case EB_DoorOpen:
 			if newElevator.Calls != elevator.Calls || newElevator.Obstruction {
 				timerDurationChan <- config.DoorOpenDuration
-				fmt.Println("set door timer")
 			}
 		case EB_Moving:
 			timerDurationChan <- config.TimeBetweenFloors
@@ -218,13 +214,10 @@ func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.Calls[elevator.Floor][elevio.BT_Cab] = false
 	switch elevator.Direction {
 	case D_Up:
-		fmt.Println("D_Up")
 		elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
 	case D_Down:
-		fmt.Println("D_Down")
 		elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
 	default:
-		fmt.Println("D_Stop")
 		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] {
 			elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
 			elevator.Direction = D_Up
@@ -233,6 +226,5 @@ func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 			elevator.Direction = D_Down
 		}
 	}
-	fmt.Println("Cleared at current floor:", elevator.Calls)
 	return elevator
 }

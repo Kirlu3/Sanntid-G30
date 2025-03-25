@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"time"
@@ -17,7 +16,6 @@ import (
 
 The routine listens to the master's UDP broadcasts and responds with the updated calls.
 If the backup loses connection with the master, it will transition to the master phase with its current list of calls.
-A large portion of the backup code are pretty prints of updates to alive lists.
 */
 func Backup(id string) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
@@ -41,7 +39,6 @@ func Backup(id string) master.Calls {
 
 	go bcast.Receiver(config.MasterBroadcastPort, masterCallsRxChan)
 
-	fmt.Println("Backup Started: ", id)
 	var backupsUpdate alive.AliveUpdate
 	var masterUpdate alive.AliveUpdate
 	var calls master.Calls
@@ -58,21 +55,10 @@ func Backup(id string) master.Calls {
 		case newCalls := <-masterCallsRxChan:
 			if len(masterUpdate.Alive) > 0 && strconv.Itoa(newCalls.Id) == masterUpdate.Alive[0] {
 				calls = newCalls.Calls
-			} else {
-				fmt.Println("received a message from not the master")
 			}
-
 		case backupsUpdate = <-backupsUpdateRxChan:
-			fmt.Printf("Backups update:\n")
-			fmt.Printf("  Backups:    %q\n", backupsUpdate.Alive)
-			fmt.Printf("  New:        %q\n", backupsUpdate.New)
-			fmt.Printf("  Lost:       %q\n", backupsUpdate.Lost)
 
 		case masterUpdate = <-masterUpdateRxChan:
-			fmt.Printf("Master update:\n")
-			fmt.Printf("  Masters:    %q\n", masterUpdate.Alive)
-			fmt.Printf("  New:        %q\n", masterUpdate.New)
-			fmt.Printf("  Lost:       %q\n", masterUpdate.Lost)
 
 		case <-time.After(time.Millisecond * config.BackupBroadcastPeriodMs):
 		}

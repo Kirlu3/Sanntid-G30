@@ -67,12 +67,10 @@ func assigner(
 		select {
 		case stateUpdate := <-slaveStateUpdateChan:
 			elevators[stateUpdate.ID] = stateUpdate
-			fmt.Println("As:Received new states")
 
 		case callsToAssignUpdate = <-callsToAssignChan:
 			calls = callsToAssignUpdate.Calls
 			aliveElevators = callsToAssignUpdate.AliveElevators
-			fmt.Printf("As: state: %v\n", elevators)
 		}
 
 		availableElevators := aliveAndNotStuck(aliveElevators, elevators)
@@ -82,7 +80,6 @@ func assigner(
 		}
 		assignedCalls := assignCalls(elevators, calls, availableElevators)
 		callsToSlaveChan <- assignedCalls
-		fmt.Println("As:Succeded")
 	}
 }
 
@@ -116,9 +113,6 @@ func assignCalls(
 	}
 
 	input := transformInputToJSON(elevators, calls, availableElevators)
-
-	fmt.Println("Input to assigner: ", string(input))
-
 	outputJsonFormat, errAssign := exec.Command("heislab/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
@@ -132,8 +126,6 @@ func assignCalls(
 			output[elev][floor][elevio.BT_Cab] = calls.CabCalls[elev][floor]
 		}
 	}
-
-	fmt.Println("Output from assigner: ", output)
 
 	return output
 }

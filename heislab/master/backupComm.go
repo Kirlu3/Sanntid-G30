@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -107,10 +106,6 @@ mainLoop:
 			acksReceived = incomingBackupBroadcast(calls, acksReceived, backupBroadcast)
 
 		case aliveBackupsUpdate := <-aliveBackupsUpdateChan:
-			fmt.Printf("Backups update:\n")
-			fmt.Printf("  Backups:    %q\n", aliveBackupsUpdate.Alive)
-			fmt.Printf("  New:        %q\n", aliveBackupsUpdate.New)
-			fmt.Printf("  Lost:       %q\n", aliveBackupsUpdate.Lost)
 			aliveBackups = aliveBackupsUpdate.Alive
 
 		case masterBroadcast := <-masterBroadcastRxChan:
@@ -125,13 +120,9 @@ mainLoop:
 			}
 		}
 
-		fmt.Println("BC: Sending calls")
 		var aliveElevators [config.N_ELEVATORS]bool
 		for _, backup := range aliveBackups {
-			backupId, err := strconv.Atoi(backup)
-			if err != nil {
-				panic("BC got weird aliveElev")
-			}
+			backupId, _ := strconv.Atoi(backup)
 			aliveElevators[backupId] = true // if the backup is alive, then the elevator with the same id is alive
 		}
 		aliveElevators[ownId] = true
@@ -185,7 +176,6 @@ func incomingBackupBroadcast(calls Calls, acksReceived [config.N_ELEVATORS]bool,
 	Id    int
 }) [config.N_ELEVATORS]bool {
 	if backupBroadcast.Calls == calls && !acksReceived[backupBroadcast.Id] {
-		fmt.Println("new backup state from", backupBroadcast.Id)
 		acksReceived[backupBroadcast.Id] = true
 	}
 	return acksReceived
@@ -215,13 +205,8 @@ func incomingMasterBroadcast(calls Calls, ownID int, masterBroadcast struct {
 		calls = addCalls(calls, masterBroadcast.Calls)
 
 	} else if masterBroadcast.Id < ownID && isCallsSubset(calls, masterBroadcast.Calls) {
-		fmt.Println("find a better way to restart the program")
 		os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42
-
-	} else {
-		fmt.Println("couldn't end master phase: other master has not accepted our calls")
 	}
-
 	return calls
 }
 
