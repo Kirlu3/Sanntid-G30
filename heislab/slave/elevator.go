@@ -32,7 +32,7 @@ type Elevator struct {
 }
 
 /*
-	Checks if an elevator has a state within the correct bounds
+# Checks if an elevator has a state within the correct bounds
 
 Input: The elevator to be checked
 
@@ -47,11 +47,9 @@ func validElevator(elevator Elevator) bool {
 }
 
 /*
-	Updates the state of elevator with the state of newElevator if the state is valid.
-	The function also notifies the master if the elevators stuck status has changed,
-	and activates the IO of the elevator
+# Updates the state of elevator with the state of newElevator if its is valid, sends the new state to the braodcaster, and starts the correct timer.
 
-Input: The new elevator struct, the old elevator struct, the channel to send messages to the master, the channel to start the timer
+Input: The new state of the elevator, the current state of the elevator, the channel to send the new state to the broadcaster, and the channel to send the timer duration to the timer.
 
 Returns: The updated elevator struct
 */
@@ -120,7 +118,7 @@ func callsAtCurrentFloor(elevator Elevator) bool {
 }
 
 /*
-	Chooses the direction and behaviour of the elevator based on the calls and current state
+# Chooses the direction and behaviour of the elevator based on the calls and current state of the elevator
 
 Input: The elevator
 
@@ -163,7 +161,7 @@ func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBeha
 			return D_Stop, EB_Idle
 		}
 	default:
-		panic("no other cases")
+		panic("Invalid elevator direction")
 	}
 }
 
@@ -202,11 +200,11 @@ func shouldElevatorStop(elevator Elevator) bool {
 }
 
 /*
-Clears calls depending on the direction of the elevator.
+# Clears calls depending on the direction of the elevator. Will only clear hall calls in one direction at a time.
 
 Input: the elevator
 
-Returns: the elevator with cleared calls at the current floor.
+Returns: the elevator with cleared calls at the current floor, in addition to a new direction in the case of no initial direction.
 */
 func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.Calls[elevator.Floor][elevio.BT_Cab] = false

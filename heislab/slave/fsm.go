@@ -16,9 +16,9 @@ Input: the elevator ID and all relevant channels
 func fsm(ID int,
 	slaveStateToMasterChan chan<- Elevator,
 	callsFromMasterChan <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
-	drv_NewFloorChan <-chan int,
-	drv_ObstrChan <-chan bool,
-	drv_StopChan <-chan bool,
+	drvNewFloorChan <-chan int,
+	drvObstrChan <-chan bool,
+	drvStopChan <-chan bool,
 	timerDurationChan chan int,
 	timer *time.Timer,
 ) {
@@ -38,15 +38,15 @@ func fsm(ID int,
 			newElevator = onNewCalls(elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
-		case floor := <-drv_NewFloorChan:
+		case floor := <-drvNewFloorChan:
 			newElevator = onFloorArrival(floor, elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
-		case obstr := <-drv_ObstrChan:
+		case obstr := <-drvObstrChan:
 			newElevator = onObstruction(obstr, elevator)
 			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
 
-		case <-drv_StopChan:
+		case <-drvStopChan:
 			onStopButtonPress()
 
 		case <-timer.C:

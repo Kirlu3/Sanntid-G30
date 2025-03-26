@@ -10,33 +10,25 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 )
 
-// Arrays of all HallCalls and CabCalls
 type Calls struct {
 	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
 	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool
 }
 
-// The messages sent between masters and backups
 type BackupCalls struct {
 	Calls Calls
 	Id    int
 }
 
-// The message sent to the assigner
 type AssignCalls struct {
 	Calls          Calls
 	AliveElevators [config.N_ELEVATORS]bool
 }
 
-// The added/removed calls we get from the slaveReceiver
 type UpdateCalls struct {
 	Calls   Calls
 	AddCall bool
 }
-
-// struct{Calls Calls; Id int}
-// struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool}
-// struct{Calls Calls; AddCall bool}
 
 /*
 # Broadcasts all active calls to the backups
@@ -61,9 +53,15 @@ func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) 
 }
 
 /*
-# Listens to both the backup and master broadcast ports and ensures acknowledgments on all active calls
+# Listens to both the backup and master broadcast ports and ensures acknowledgments on all active calls before sending them to the assigner.
 
-Will crash the program upon encountering another master of higher priority
+Input: callsUpdateChan, callsToAssignChan, callsToBackupsTxChan, initCalls, ownId
+
+callsUpdateChan: receives updates about the active calls
+
+callsToAssignChan: sends the acknowledged calls to the assigner
+
+callsToBackupsTxChan: sends the calls to the routine that broadcasts them to the backups
 */
 func callsFromBackupsRx(
 	callsUpdateChan <-chan struct {
@@ -105,7 +103,7 @@ mainLoop:
 			calls, acksReceived = incomingCallsUpdate(calls, acksReceived, ownId, callsUpdate)
 			callsToBackupsTxChan <- calls
 
-		case backupBroadcast := <-backupBroadcastRxChan: // set ack for backup if it has the same calls
+		case backupBroadcast := <-backupBroadcastRxChan:
 			acksReceived = incomingBackupBroadcast(calls, acksReceived, backupBroadcast)
 
 		case aliveBackupsUpdate := <-aliveBackupsUpdateChan:
@@ -117,7 +115,7 @@ mainLoop:
 		case <-time.After(config.CheckBackupAckMs * time.Millisecond):
 		}
 
-		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
+		for _, backup := range aliveBackups {
 			backupId, _ := strconv.Atoi(backup)
 			if !acksReceived[backupId] {
 				continue mainLoop
@@ -167,9 +165,7 @@ func incomingCallsUpdate(calls Calls, acksReceived [config.N_ELEVATORS]bool, own
 }
 
 /*
-# Called when there is an incoming broadcast on the BackupBroadcastPort
-
-# updates acknowledgements if the calls match
+# Called when there is an incoming broadcast on the BackupBroadcastPort. Updates the corresponding ack if the calls match.
 
 Input: the active calls, the active acksReceived, the incoming backupBroadcast
 
@@ -190,9 +186,9 @@ func incomingBackupBroadcast(calls Calls, acksReceived [config.N_ELEVATORS]bool,
 
 If the master hears itself: does nothing
 
-If it hears a master with lower priority: add it's calls
+If it hears a master with lower priority: add its calls to its own
 
-If it hears a master with higher priority: die once it knows it's calls have been received
+If it hears a master with higher priority: die once it knows its calls have been received
 
 Input: the active calls, the master's ID, and the incoming masterBroadcast
 

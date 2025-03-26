@@ -21,7 +21,7 @@ type HRAElevState struct {
 }
 
 type HRAInput struct {
-	HallRequests [][2]bool               `json:"hallRequests"` // first bool is for up and second is down
+	HallRequests [][2]bool               `json:"hallRequests"`
 	States       map[string]HRAElevState `json:"states"`
 }
 
@@ -38,11 +38,15 @@ var directionMap = map[slave.ElevatorDirection]string{
 }
 
 /*
-slaveStateUpdateChan receives updates about the state of the elevators
+# The assigner runs in this goroutine. It collects all necessary information to assign calls to the elevators, assigns them and sends the assigned calls to the slaveComm module.
 
-callsToAssignChan receives the calls that should be assigned and a list over the alive elevators
+Input: slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, masterId
 
-callsToSlaveChan sends the assigned orders to the function that handles sending them to the slaves
+slaveStateUpdateChan: receives updates about the state of the elevators
+
+callsToAssignChan: receives the calls that should be assigned and a list over the alive elevators
+
+callsToSlaveChan: sends the assigned calls to a routine that sends them to the slaves
 */
 func assigner(
 	slaveStateUpdateChan <-chan slave.Elevator,
@@ -83,6 +87,11 @@ func assigner(
 	}
 }
 
+/*
+Input: The alive elevators and their elevator states
+
+Returns: an array containing the alive elevators that are not stuck
+*/
 func aliveAndNotStuck(aliveElevators [3]bool, elevators [3]slave.Elevator) [config.N_ELEVATORS]bool {
 	var availableElevators [config.N_ELEVATORS]bool
 	for elev := range config.N_ELEVATORS {
@@ -92,6 +101,8 @@ func aliveAndNotStuck(aliveElevators [3]bool, elevators [3]slave.Elevator) [conf
 }
 
 /*
+# This function assigns calls to the elevators using the hall request assigner.
+
 Input: the masters view of the elevator states and the calls that should be assigned
 
 Output: an array containing what calls go to which elevator
@@ -142,7 +153,6 @@ func transformInputToJSON(elevators [config.N_ELEVATORS]slave.Elevator, calls Ca
 		States:       map[string]HRAElevState{},
 	}
 
-	// adding all available elevators to the input map
 	for i := range config.N_ELEVATORS {
 		if availableElevators[i] {
 			input.States[strconv.Itoa(elevators[i].ID)] = HRAElevState{
@@ -188,7 +198,6 @@ func transformOutputFromJSON(outputJsonFormat []byte, calls Calls) [config.N_ELE
 		}
 
 		for floor := range config.N_FLOORS {
-			// appending cab calls from worldview of each floor to the output
 			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][elevio.BT_HallUp], tempElevatorOrders[floor][elevio.BT_HallDown], calls.CabCalls[elevatorId][floor]}
 		}
 

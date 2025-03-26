@@ -15,10 +15,7 @@ func Master(
 	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
 	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 ) {
-	Id, err := strconv.Atoi(id_string)
-	if err != nil {
-		panic("Master received invalid id")
-	}
+	Id, _ := strconv.Atoi(id_string)
 
 	callsUpdateChan := make(chan struct {
 		Calls   Calls

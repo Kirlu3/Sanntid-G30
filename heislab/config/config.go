@@ -16,7 +16,9 @@ const (
 	SlaveButtonPort    = 40001
 	SlaveAckPort       = 40002
 	SlaveCallsPort     = 40003
+)
 
+const (
 	BackupBroadcastPeriodMs         = 1
 	MasterBroadcastCallsPeriodMs    = 1
 	MasterBroadcastAssignedPeriodMs = 10

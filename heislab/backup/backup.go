@@ -11,10 +11,11 @@ import (
 )
 
 /*
-	The entire backup system run in one goroutine.
+# The backup routine listens to the master's UDP broadcasts and responds with the updated calls. If the backup loses connection with the master, it will transition to the master phase with its current list of calls.
 
-The routine listens to the master's UDP broadcasts and responds with the updated calls.
-If the backup loses connection with the master, it will transition to the master phase with its current list of calls.
+Input: id
+
+Returns: the calls that the backup has backed up
 */
 func Backup(id string) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)

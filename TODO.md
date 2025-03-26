@@ -1,1 +1,0 @@
-TODO: general cleanup and code quality when we have time (thing I realized, fix all the print statements)

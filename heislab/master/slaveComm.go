@@ -11,7 +11,13 @@ import (
 )
 
 /*
-buttonPressRx receives button presses from the slaves, acknowledges them and sends a callsUpdate to the backupCoordinator, which forwards this information to the backups and ensures reassignments of the current calls.
+# Listens to buttonpresses from the slaves and sends them to be backed up. Also sends acknowledgements to messages received over the network.
+
+Inputs: callsUpdateChan, offlineSlaveBtnToMasterChan
+
+callsUpdateChan: sends updates about the active calls to be backed up
+
+offlineSlaveBtnToMasterChan: receives button presses from the slave running on the same machine as the master
 */
 func buttonPressRx(
 	callsUpdateChan chan<- struct {
@@ -20,11 +26,9 @@ func buttonPressRx(
 	},
 	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
 ) {
-	//channel to receive button presses
 	btnPressRxChan := make(chan slave.ButtonMessage)
 	go bcast.Receiver(config.SlaveButtonPort, btnPressRxChan)
 
-	//ack channel to send acknowledgments
 	ackTxChan := make(chan int)
 	go bcast.Transmitter(config.SlaveAckPort, ackTxChan)
 
@@ -35,7 +39,7 @@ func buttonPressRx(
 			ackTxChan <- newBtn.MsgID
 			if !slices.Contains(msgIDs, newBtn.MsgID) {
 				msgIDs = append(msgIDs, newBtn.MsgID)
-				// remove the oldest messageID if we've stored too many. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+				//removes the oldest message ID if the slice is longer than 20. 20 is an arbitrary number.
 				if len(msgIDs) > 20 {
 					msgIDs = msgIDs[1:]
 				}
@@ -48,8 +52,15 @@ func buttonPressRx(
 }
 
 /*
-slaveStateUpdateRx listens to UDP broadcasts from the slaves, which contains their state.
-Dependent on the state of the slave, the routine sends a removeCallsUpdate to the backupCoordinator, which forwards this information to the backups and ensures reassignments of the current calls.
+# Listens to updates to the slaves elevator state and sends them to the assigner. Also sends updates on cleared orders to be backed up
+
+Inputs: slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan
+
+slaveStateUpdateChan: sends updates about the slaves elevator state to the assigner
+
+callsUpdateChan: sends updates about the active calls to be backed up
+
+offlineSlaveStateToMasterChan: receives updates about the slaves elevator state from the slave running on the same machine as the master
 */
 func slaveStateUpdateRx(
 	slaveStateUpdateChan chan<- slave.Elevator,

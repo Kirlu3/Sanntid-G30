@@ -12,9 +12,7 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-// the program should be called with go run heislab/main.go -id=x -port=5590x
 func main() {
-	// id := os.Args[1:][0]
 	id := flag.String("id", "inv", "id of this elevator")
 	serverPort := flag.String("port", "15657", "port to communicate with elevator")
 	flag.Parse()
@@ -26,7 +24,6 @@ func main() {
 	serverAddress := fmt.Sprintf("localhost:%s", *serverPort)
 	elevio.Init(serverAddress, config.N_FLOORS)
 
-	// Channels for offline communication
 	offlineCallsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
 	offlineSlaveBtnToMasterChan := make(chan slave.ButtonMessage)
 	offlineSlaveStateToMasterChan := make(chan slave.Elevator)

@@ -21,10 +21,10 @@ func Slave(
 	ID, _ := strconv.Atoi(id)
 
 	//initialize channels
-	drv_BtnChan := make(chan elevio.ButtonEvent)
-	drv_NewFloorChan := make(chan int)
-	drv_ObstrChan := make(chan bool)
-	drv_StopChan := make(chan bool)
+	drvBtnChan := make(chan elevio.ButtonEvent)
+	drvNewFloorChan := make(chan int)
+	drvObstrChan := make(chan bool)
+	drvStopChan := make(chan bool)
 
 	slaveStateToMasterChan := make(chan Elevator, 2)
 	callsFromMasterChan := make(chan [config.N_FLOORS][config.N_BUTTONS]bool)
@@ -37,16 +37,16 @@ func Slave(
 	go resetTimer(timerDurationChan, timer)
 
 	//initialize sensors
-	go elevio.PollButtons(drv_BtnChan)
-	go elevio.PollFloorSensor(drv_NewFloorChan)
-	go elevio.PollObstructionSwitch(drv_ObstrChan)
-	go elevio.PollStopButton(drv_StopChan)
+	go elevio.PollButtons(drvBtnChan)
+	go elevio.PollFloorSensor(drvNewFloorChan)
+	go elevio.PollObstructionSwitch(drvObstrChan)
+	go elevio.PollStopButton(drvStopChan)
 
 	//initialize network
-	go buttonPressTx(drv_BtnChan, offlineSlaveBtnToMasterChan, startSendingBtnOfflineChan, ID)
+	go buttonPressTx(drvBtnChan, offlineSlaveBtnToMasterChan, startSendingBtnOfflineChan, ID)
 	go slaveStateTx(slaveStateToMasterChan, offlineSlaveStateToMasterChan, startSendingStateOfflineChan)
 	go callsFromMasterRx(callsFromMasterChan, offlineCallsToSlaveChan, ID)
 
 	//initialize fsm
-	go fsm(ID, slaveStateToMasterChan, callsFromMasterChan, drv_NewFloorChan, drv_ObstrChan, drv_StopChan, timerDurationChan, timer)
+	go fsm(ID, slaveStateToMasterChan, callsFromMasterChan, drvNewFloorChan, drvObstrChan, drvStopChan, timerDurationChan, timer)
 }
