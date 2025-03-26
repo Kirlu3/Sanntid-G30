@@ -8,6 +8,9 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
+/*
+# The main function of the master module. Initializes all channels and goroutines.
+*/
 func Master(
 	initialCalls Calls,
 	id_string string,

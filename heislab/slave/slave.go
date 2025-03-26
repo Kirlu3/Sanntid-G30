@@ -8,6 +8,9 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
 
+/*
+# The main function of the slave module. Initializes all channels and goroutines.
+*/
 func Slave(
 	id string,
 	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
