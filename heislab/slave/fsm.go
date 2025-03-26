@@ -19,16 +19,14 @@ func fsm(ID int,
 	drvNewFloorChan <-chan int,
 	drvObstrChan <-chan bool,
 	drvStopChan <-chan bool,
-	timerDurationChan chan int,
 	timer *time.Timer,
 ) {
 
 	var elevator Elevator
 	elevator.ID = ID
-	updateLights(elevator.Calls)
 
 	newElevator := initElevator(elevator)
-	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
 
 	for {
 		activateElevatorIO(elevator)
@@ -36,22 +34,22 @@ func fsm(ID int,
 		case newCalls := <-callsFromMasterChan:
 			elevator.Calls = newCalls
 			newElevator = onNewCalls(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
 
 		case floor := <-drvNewFloorChan:
 			newElevator = onFloorArrival(floor, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
 
 		case obstr := <-drvObstrChan:
 			newElevator = onObstruction(obstr, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
 
 		case <-drvStopChan:
 			onStopButtonPress()
 
 		case <-timer.C:
 			newElevator = onTimerEnd(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
 		}
 	}
 }

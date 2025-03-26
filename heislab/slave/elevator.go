@@ -1,6 +1,8 @@
 package slave
 
 import (
+	"time"
+
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
 	"github.com/Kirlu3/Sanntid-G30/heislab/driver-go/elevio"
 )
@@ -53,17 +55,17 @@ Input: The new state of the elevator, the current state of the elevator, the cha
 
 Returns: The updated elevator struct
 */
-func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator, timerDurationChan chan<- int) Elevator {
+func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator, timer *time.Timer) Elevator {
 	if validElevator(newElevator) {
 		slaveStateToMasterChan <- newElevator
 
 		switch newElevator.Behaviour {
 		case EB_DoorOpen:
 			if newElevator.Calls != elevator.Calls || newElevator.Obstruction {
-				timerDurationChan <- config.DoorOpenDuration
+				timer.Reset(time.Second * time.Duration(config.DoorOpenDuration))
 			}
 		case EB_Moving:
-			timerDurationChan <- config.TimeBetweenFloors
+			timer.Reset(time.Second * time.Duration(config.TimeBetweenFloors))
 		}
 
 		return newElevator

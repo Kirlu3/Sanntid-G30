@@ -35,6 +35,3 @@ The receiving routine listens to order assignment UDP broadcasts from the master
 
 ## slave.go
 Contains a single function that initializes all channels and go routines between other parts of the slave module. This is essentially the main file for the slave module.
-
-## timer.go
-Contains a timer server that will restart the timer when receiving a timer duration.
