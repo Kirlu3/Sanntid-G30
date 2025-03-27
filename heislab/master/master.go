@@ -11,7 +11,7 @@ import (
 /*
 # The main function of the master module. Initializes all channels and goroutines.
 */
-func Master(
+func Main(
 	initialCalls Calls,
 	id_string string,
 	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,

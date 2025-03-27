@@ -11,7 +11,7 @@ import (
 /*
 # The main function of the slave module. Initializes all channels and goroutines.
 */
-func Slave(
+func Main(
 	id string,
 	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
 	offlineSlaveBtnToMasterChan chan<- ButtonMessage,

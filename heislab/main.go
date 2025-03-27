@@ -31,14 +31,14 @@ func main() {
 	startSendingBtnOfflineChan := make(chan struct{})
 	startSendingStateOfflineChan := make(chan struct{})
 
-	slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan, startSendingBtnOfflineChan, startSendingStateOfflineChan)
+	slave.Main(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan, startSendingBtnOfflineChan, startSendingStateOfflineChan)
 
-	backedUpCalls := backup.Backup(*id)
+	backedUpCalls := backup.Run(*id)
 
 	startSendingBtnOfflineChan <- struct{}{}
 	startSendingStateOfflineChan <- struct{}{}
 
-	master.Master(backedUpCalls, *id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
+	master.Main(backedUpCalls, *id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 
 	select {}
 }

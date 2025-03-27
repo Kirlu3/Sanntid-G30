@@ -17,7 +17,7 @@ Input: id
 
 Returns: the calls that the backup has backed up
 */
-func Backup(id string) master.Calls {
+func Run(id string) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
 	enableBackupTxChan := make(chan bool)
 	backupCallsTxChan := make(chan struct {
