@@ -1,13 +1,12 @@
 package config
 
 const (
-	N_FLOORS    = 4
-	N_BUTTONS   = 3
-	N_ELEVATORS = 3
+	NumFloors    = 4
+	NumBtns      = 3
+	NumElevators = 3
 )
 
 const (
-	WatchdogPort         = 15500
 	MasterUpdatePort     = 30019
 	BackupsUpdatePort    = 30029
 	MasterBroadcastPort  = 30039
@@ -17,14 +16,18 @@ const (
 	SlaveButtonPort    = 40001
 	SlaveAckPort       = 40002
 	SlaveCallsPort     = 40003
+)
 
-	BackupBroadcastPeriodMs         = 1
-	MasterBroadcastCallsPeriodMs    = 1
-	MasterBroadcastAssignedPeriodMs = 10
-	SlaveBroadcastPeriodMs          = 1
+const (
+	BackupBroadcastPeriodMs         = 20
+	MasterBroadcastCallsPeriodMs    = 20
+	MasterBroadcastAssignedPeriodMs = 20
+	SlaveBroadcastPeriodMs          = 20
 
-	ResendPeriodMs  = 10
+	ResendPeriodMs  = 20
 	ResendTimeoutMs = 2000
+
+	CheckBackupAckMs = 50
 )
 
 const (

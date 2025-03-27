@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -9,19 +8,16 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-func Master(
+/*
+# The main function of the master module. Initializes all channels and goroutines.
+*/
+func Main(
 	initialCalls Calls,
-	id_string string,
-	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	Id int,
+	offlineCallsToSlaveChan chan<- [config.NumElevators][config.NumFloors][config.NumBtns]bool,
 	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
 	offlineSlaveStateToMasterChan <-chan slave.Elevator,
 ) {
-	Id, err := strconv.Atoi(id_string)
-	if err != nil {
-		panic("master received invalid id")
-	}
-	fmt.Println(Id, "entered master mode")
-
 	callsUpdateChan := make(chan struct {
 		Calls   Calls
 		AddCall bool
@@ -29,11 +25,11 @@ func Master(
 
 	callsToAssignChan := make(chan struct {
 		Calls          Calls
-		AliveElevators [config.N_ELEVATORS]bool
+		AliveElevators [config.NumElevators]bool
 	})
 
 	slaveStateUpdateChan := make(chan slave.Elevator)
-	callsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	callsToSlaveChan := make(chan [config.NumElevators][config.NumFloors][config.NumBtns]bool)
 	callsToBackupsTxChan := make(chan Calls)
 	enableMasterTxChan := make(chan bool)
 

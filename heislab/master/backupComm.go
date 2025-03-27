@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -11,40 +10,32 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/network/bcast"
 )
 
-// Arrays of all HallCalls and CabCalls
 type Calls struct {
-	HallCalls [config.N_FLOORS][config.N_BUTTONS - 1]bool
-	CabCalls  [config.N_ELEVATORS][config.N_FLOORS]bool
+	HallCalls [config.NumFloors][config.NumBtns - 1]bool
+	CabCalls  [config.NumElevators][config.NumFloors]bool
 }
 
-// The messages sent between masters and backups
 type BackupCalls struct {
 	Calls Calls
 	Id    int
 }
 
-// The message sent to the assigner
 type AssignCalls struct {
 	Calls          Calls
-	AliveElevators [config.N_ELEVATORS]bool
+	AliveElevators [config.NumElevators]bool
 }
 
-// The added/removed calls we get from the slaveReceiver
 type UpdateCalls struct {
 	Calls   Calls
 	AddCall bool
 }
-
-// struct{Calls Calls; Id int}
-// struct{Calls Calls; AliveElevators [config.N_ELEVATORS]bool}
-// struct{Calls Calls; AddCall bool}
 
 /*
 # Broadcasts all active calls to the backups
 
 Receives calls on the callsToBackupsChan and broadcasts on the MasterBroadcastPort
 */
-func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) {
+func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, ownId int) {
 	callsToBackupTx := make(chan struct {
 		Calls Calls
 		Id    int
@@ -54,17 +45,23 @@ func callsToBackupsTx(callsToBackupsChan <-chan Calls, initCalls Calls, Id int) 
 	for {
 		select {
 		case calls = <-callsToBackupsChan:
-			callsToBackupTx <- BackupCalls{Calls: calls, Id: Id}
+			callsToBackupTx <- BackupCalls{Calls: calls, Id: ownId}
 		case <-time.After(config.MasterBroadcastCallsPeriodMs * time.Millisecond):
-			callsToBackupTx <- BackupCalls{Calls: calls, Id: Id}
+			callsToBackupTx <- BackupCalls{Calls: calls, Id: ownId}
 		}
 	}
 }
 
 /*
-# Listens to both the backup and master broadcast ports and ensures acknowledgments on all active calls
+# Listens to both the backup and master broadcast ports and ensures acknowledgments on all active calls before sending them to the assigner.
 
-Will crash the program upon encountering another master of higher priority
+Input: callsUpdateChan, callsToAssignChan, callsToBackupsTxChan, initCalls, ownId
+
+callsUpdateChan: receives updates about the active calls
+
+callsToAssignChan: sends the acknowledged calls to the assigner
+
+callsToBackupsTxChan: sends the calls to the routine that broadcasts them to the backups
 */
 func callsFromBackupsRx(
 	callsUpdateChan <-chan struct {
@@ -73,10 +70,10 @@ func callsFromBackupsRx(
 	},
 	callsToAssignChan chan<- struct {
 		Calls          Calls
-		AliveElevators [config.N_ELEVATORS]bool
+		AliveElevators [config.NumElevators]bool
 	},
 	callsToBackupsTxChan chan<- Calls,
-	calls Calls,
+	initCalls Calls,
 	ownId int,
 ) {
 	masterBroadcastRxChan := make(chan struct {
@@ -94,7 +91,10 @@ func callsFromBackupsRx(
 	go alive.Receiver(config.BackupsUpdatePort, aliveBackupsUpdateChan)
 
 	var aliveBackups []string
-	var acksReceived [config.N_ELEVATORS]bool
+	var acksReceived [config.NumElevators]bool
+
+	calls := initCalls
+	callsToBackupsTxChan <- calls
 
 mainLoop:
 	for {
@@ -103,35 +103,28 @@ mainLoop:
 			calls, acksReceived = incomingCallsUpdate(calls, acksReceived, ownId, callsUpdate)
 			callsToBackupsTxChan <- calls
 
-		case backupBroadcast := <-backupBroadcastRxChan: // set ack for backup if it has the same calls
+		case backupBroadcast := <-backupBroadcastRxChan:
 			acksReceived = incomingBackupBroadcast(calls, acksReceived, backupBroadcast)
 
 		case aliveBackupsUpdate := <-aliveBackupsUpdateChan:
-			fmt.Printf("Backups update:\n")
-			fmt.Printf("  Backups:    %q\n", aliveBackupsUpdate.Alive)
-			fmt.Printf("  New:        %q\n", aliveBackupsUpdate.New)
-			fmt.Printf("  Lost:       %q\n", aliveBackupsUpdate.Lost)
 			aliveBackups = aliveBackupsUpdate.Alive
 
 		case masterBroadcast := <-masterBroadcastRxChan:
 			calls = incomingMasterBroadcast(calls, ownId, masterBroadcast)
 			callsToBackupsTxChan <- calls
+		case <-time.After(config.CheckBackupAckMs * time.Millisecond):
 		}
 
-		for _, backup := range aliveBackups { // if some alive backups havent given ack, continue main loop
+		for _, backup := range aliveBackups {
 			backupId, _ := strconv.Atoi(backup)
 			if !acksReceived[backupId] {
 				continue mainLoop
 			}
 		}
 
-		fmt.Println("BC: Sending calls")
-		var aliveElevators [config.N_ELEVATORS]bool
+		var aliveElevators [config.NumElevators]bool
 		for _, backup := range aliveBackups {
-			backupId, err := strconv.Atoi(backup)
-			if err != nil {
-				panic("BC got weird aliveElev")
-			}
+			backupId, _ := strconv.Atoi(backup)
 			aliveElevators[backupId] = true // if the backup is alive, then the elevator with the same id is alive
 		}
 		aliveElevators[ownId] = true
@@ -148,10 +141,10 @@ Input: the active calls, the active acksReceived, the master's ID, and the calls
 
 Returns: updated calls and acksReceived
 */
-func incomingCallsUpdate(calls Calls, acksReceived [config.N_ELEVATORS]bool, ownID int, callsUpdate struct {
+func incomingCallsUpdate(calls Calls, acksReceived [config.NumElevators]bool, ownID int, callsUpdate struct {
 	Calls   Calls
 	AddCall bool
-}) (Calls, [config.N_ELEVATORS]bool) {
+}) (Calls, [config.NumElevators]bool) {
 
 	var newCalls Calls
 	if callsUpdate.AddCall {
@@ -172,20 +165,17 @@ func incomingCallsUpdate(calls Calls, acksReceived [config.N_ELEVATORS]bool, own
 }
 
 /*
-# Called when there is an incoming broadcast on the BackupBroadcastPort
-
-# updates acknowledgements if the calls match
+# Called when there is an incoming broadcast on the BackupBroadcastPort. Updates the corresponding ack if the calls match.
 
 Input: the active calls, the active acksReceived, the incoming backupBroadcast
 
 Returns: updated acksReceived
 */
-func incomingBackupBroadcast(calls Calls, acksReceived [config.N_ELEVATORS]bool, backupBroadcast struct {
+func incomingBackupBroadcast(calls Calls, acksReceived [config.NumElevators]bool, backupBroadcast struct {
 	Calls Calls
 	Id    int
-}) [config.N_ELEVATORS]bool {
+}) [config.NumElevators]bool {
 	if backupBroadcast.Calls == calls && !acksReceived[backupBroadcast.Id] {
-		fmt.Println("new backup state from", backupBroadcast.Id)
 		acksReceived[backupBroadcast.Id] = true
 	}
 	return acksReceived
@@ -196,46 +186,44 @@ func incomingBackupBroadcast(calls Calls, acksReceived [config.N_ELEVATORS]bool,
 
 If the master hears itself: does nothing
 
-If it hears a master with lower priority: add it's calls
+If it hears a master with lower priority: add its calls to its own
 
-If it hears a master with higher priority: die once it knows it's calls have been received
+If it hears a master with higher priority: die once it knows its calls have been received
 
 Input: the active calls, the master's ID, and the incoming masterBroadcast
 
 Returns: updated calls
 */
-func incomingMasterBroadcast(calls Calls, ownID int, masterBroadcast struct {
-	Calls Calls
-	Id    int
-}) Calls {
+func incomingMasterBroadcast(calls Calls,
+	ownId int,
+	masterBroadcast struct {
+		Calls Calls
+		Id    int
+	},
+) Calls {
 
-	if masterBroadcast.Id == ownID {
+	if masterBroadcast.Id == ownId {
 		//Do nothing
-	} else if masterBroadcast.Id > ownID {
+	} else if masterBroadcast.Id > ownId {
 		calls = addCalls(calls, masterBroadcast.Calls)
 
-	} else if masterBroadcast.Id < ownID && isCallsSubset(calls, masterBroadcast.Calls) {
-		fmt.Println("find a better way to restart the program")
+	} else if masterBroadcast.Id < ownId && isCallsSubset(calls, masterBroadcast.Calls) {
 		os.Exit(42) // intentionally crashing, program restarts automatically when exiting with code 42
-
-	} else {
-		fmt.Println("couldn't end master phase: other master has not accepted our calls")
 	}
-
 	return calls
 }
 
 // returns true if calls1 is a subset of calls2
 func isCallsSubset(calls1 Calls, calls2 Calls) bool {
-	for i := range config.N_ELEVATORS {
-		for j := range config.N_FLOORS {
+	for i := range config.NumElevators {
+		for j := range config.NumFloors {
 			if calls1.CabCalls[i][j] && !calls2.CabCalls[i][j] {
 				return false
 			}
 		}
 	}
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS - 1 {
+	for i := range config.NumFloors {
+		for j := range config.NumBtns - 1 {
 			if calls1.HallCalls[i][j] && !calls2.HallCalls[i][j] {
 				return false
 			}
@@ -247,13 +235,13 @@ func isCallsSubset(calls1 Calls, calls2 Calls) bool {
 // returns the union of the calls in calls1 and calls2
 func addCalls(calls1 Calls, calls2 Calls) Calls {
 	var unionCalls Calls
-	for i := range config.N_ELEVATORS {
-		for j := range config.N_FLOORS {
+	for i := range config.NumElevators {
+		for j := range config.NumFloors {
 			unionCalls.CabCalls[i][j] = calls1.CabCalls[i][j] || calls2.CabCalls[i][j]
 		}
 	}
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS - 1 {
+	for i := range config.NumFloors {
+		for j := range config.NumBtns - 1 {
 			unionCalls.HallCalls[i][j] = calls1.HallCalls[i][j] || calls2.HallCalls[i][j]
 		}
 	}
@@ -264,13 +252,13 @@ func addCalls(calls1 Calls, calls2 Calls) Calls {
 func removeCalls(calls Calls, removedCalls Calls) Calls {
 	updatedCalls := calls
 
-	for i := range config.N_ELEVATORS {
-		for j := range config.N_FLOORS {
+	for i := range config.NumElevators {
+		for j := range config.NumFloors {
 			updatedCalls.CabCalls[i][j] = calls.CabCalls[i][j] && !removedCalls.CabCalls[i][j]
 		}
 	}
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS - 1 {
+	for i := range config.NumFloors {
+		for j := range config.NumBtns - 1 {
 			updatedCalls.HallCalls[i][j] = calls.HallCalls[i][j] && !removedCalls.HallCalls[i][j]
 		}
 	}

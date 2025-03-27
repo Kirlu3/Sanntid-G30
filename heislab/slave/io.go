@@ -6,40 +6,36 @@ import (
 )
 
 /*
-	Activates when the elevator state is updated
-	Interfaces with the elevator hardware to update the lights and motor direction
-	If the door opens or the elevator starts moving, the corresponding timer is started
+# Activates the elevator IO at the start of each FSM loop iteration. Interfaces with the elevator hardware to update the lights and motor direction based on elevator state.
 
-Input: The elevator with updated state and timerDurationChan that starts a timer with the specified duration in seconds.
+Input: The most recent state of the elevator.
 */
 func activateElevatorIO(elevator Elevator) {
 
-	elevio.SetFloorIndicator(elevator.Floor) //Floor IO
+	elevio.SetFloorIndicator(elevator.Floor)
 
 	switch elevator.Behaviour {
-	case EB_DoorOpen:
+	case BehaviourDoorOpen:
 		elevio.SetDoorOpenLamp(true)
-		elevio.SetMotorDirection(elevio.MD_Stop)
-	case EB_Moving:
+		elevio.SetMotorDirection(elevio.MDirectionStop)
+	case BehaviourMoving:
 		elevio.SetDoorOpenLamp(false)
 		elevio.SetMotorDirection(elevio.MotorDirection(elevator.Direction))
-	case EB_Idle:
+	case BehaviourIdle:
 		elevio.SetDoorOpenLamp(false)
-		elevio.SetMotorDirection(elevio.MD_Stop)
+		elevio.SetMotorDirection(elevio.MDirectionStop)
 	}
 }
 
 /*
-	Updates the lights on the elevator panel.
-	Interfaces with the elevator hardware to update the lights.
+# Updates the hall and cab call lights by interfacing with the elevator hardware.
 
 Input: Array of how the lights should be updated.
 */
-func updateLights(lights [config.N_FLOORS][config.N_BUTTONS]bool) {
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS {
+func updateLights(lights [config.NumFloors][config.NumBtns]bool) {
+	for i := range config.NumFloors {
+		for j := range config.NumBtns {
 			elevio.SetButtonLamp(elevio.ButtonType(j), i, lights[i][j])
 		}
 	}
-
 }

@@ -21,45 +21,49 @@ type HRAElevState struct {
 }
 
 type HRAInput struct {
-	HallRequests [][2]bool               `json:"hallRequests"` // first bool is for up and second is down
+	HallRequests [][2]bool               `json:"hallRequests"`
 	States       map[string]HRAElevState `json:"states"`
 }
 
 var behaviorMap = map[slave.ElevatorBehaviour]string{
-	slave.EB_Idle:     "idle",
-	slave.EB_Moving:   "moving",
-	slave.EB_DoorOpen: "doorOpen",
+	slave.BehaviourIdle:     "idle",
+	slave.BehaviourMoving:   "moving",
+	slave.BehaviourDoorOpen: "doorOpen",
 }
 
 var directionMap = map[slave.ElevatorDirection]string{
-	slave.D_Down: "down",
-	slave.D_Stop: "stop",
-	slave.D_Up:   "up",
+	slave.DirectionDown: "down",
+	slave.DirectionStop: "stop",
+	slave.DirectionUp:   "up",
 }
 
 /*
-slaveStateUpdateChan receives updates about the state of the elevators
+# The assigner runs in this goroutine. It collects all necessary information to assign calls to the elevators, assigns them and sends the assigned calls to the slaveComm module.
 
-callsToAssignChan receives the calls that should be assigned and a list over the alive elevators
+Input: slaveStateUpdateChan, callsToAssignChan, callsToSlaveChan, masterId
 
-callsToSlaveChan sends the assigned orders to the function that handles sending them to the slaves
+slaveStateUpdateChan: receives updates about the state of the elevators
+
+callsToAssignChan: receives the calls that should be assigned and a list over the alive elevators
+
+callsToSlaveChan: sends the assigned calls to a routine that sends them to the slaves
 */
 func assigner(
 	slaveStateUpdateChan <-chan slave.Elevator,
 	callsToAssignChan <-chan struct {
 		Calls          Calls
-		AliveElevators [config.N_ELEVATORS]bool
+		AliveElevators [config.NumElevators]bool
 	},
-	callsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	masterId int,
+	callsToSlaveChan chan<- [config.NumElevators][config.NumFloors][config.NumBtns]bool,
+	ownId int,
 ) {
 
-	elevators := [config.N_ELEVATORS]slave.Elevator{}
+	elevators := [config.NumElevators]slave.Elevator{}
 	callsToAssignUpdate := <-callsToAssignChan
 	calls := callsToAssignUpdate.Calls
 	aliveElevators := callsToAssignUpdate.AliveElevators
 
-	for i := range config.N_ELEVATORS {
+	for i := range config.NumElevators {
 		elevators[i].ID = i
 	}
 
@@ -67,43 +71,47 @@ func assigner(
 		select {
 		case stateUpdate := <-slaveStateUpdateChan:
 			elevators[stateUpdate.ID] = stateUpdate
-			fmt.Println("As:Received new states")
 
 		case callsToAssignUpdate = <-callsToAssignChan:
 			calls = callsToAssignUpdate.Calls
 			aliveElevators = callsToAssignUpdate.AliveElevators
-			fmt.Printf("As: state: %v\n", elevators)
 		}
 
 		availableElevators := aliveAndNotStuck(aliveElevators, elevators)
 
 		if !slices.Contains(availableElevators[:], true) {
-			availableElevators[masterId] = true
+			availableElevators[ownId] = true
 		}
 		assignedCalls := assignCalls(elevators, calls, availableElevators)
 		callsToSlaveChan <- assignedCalls
-		fmt.Println("As:Succeded")
 	}
 }
 
-func aliveAndNotStuck(aliveElevators [3]bool, elevators [3]slave.Elevator) [config.N_ELEVATORS]bool {
-	var availableElevators [config.N_ELEVATORS]bool
-	for elev := range config.N_ELEVATORS {
+/*
+Input: The alive elevators and their elevator states
+
+Returns: an array containing the alive elevators that are not stuck
+*/
+func aliveAndNotStuck(aliveElevators [3]bool, elevators [3]slave.Elevator) [config.NumElevators]bool {
+	var availableElevators [config.NumElevators]bool
+	for elev := range config.NumElevators {
 		availableElevators[elev] = aliveElevators[elev] && !elevators[elev].Stuck
 	}
 	return availableElevators
 }
 
 /*
+# This function assigns calls to the elevators using the hall request assigner.
+
 Input: the masters view of the elevator states and the calls that should be assigned
 
 Output: an array containing what calls go to which elevator
 */
 func assignCalls(
-	elevators [config.N_ELEVATORS]slave.Elevator,
+	elevators [config.NumElevators]slave.Elevator,
 	calls Calls,
-	availableElevators [config.N_ELEVATORS]bool,
-) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
+	availableElevators [config.NumElevators]bool,
+) [config.NumElevators][config.NumFloors][config.NumBtns]bool {
 	hraExecutable := ""
 
 	switch runtime.GOOS {
@@ -116,9 +124,6 @@ func assignCalls(
 	}
 
 	input := transformInputToJSON(elevators, calls, availableElevators)
-
-	fmt.Println("Input to assigner: ", string(input))
-
 	outputJsonFormat, errAssign := exec.Command("heislab/"+hraExecutable, "-i", string(input)).CombinedOutput()
 
 	if errAssign != nil {
@@ -127,13 +132,11 @@ func assignCalls(
 
 	output := transformOutputFromJSON(outputJsonFormat, calls)
 
-	for elev := range config.N_ELEVATORS {
-		for floor := range config.N_FLOORS {
+	for elev := range config.NumElevators {
+		for floor := range config.NumFloors {
 			output[elev][floor][elevio.BT_Cab] = calls.CabCalls[elev][floor]
 		}
 	}
-
-	fmt.Println("Output from assigner: ", output)
 
 	return output
 }
@@ -143,15 +146,14 @@ Input: the state of the elevators and the calls that should be assigned
 
 Output: JSON encoding of the input
 */
-func transformInputToJSON(elevators [config.N_ELEVATORS]slave.Elevator, calls Calls, availableElevators [config.N_ELEVATORS]bool) []byte {
+func transformInputToJSON(elevators [config.NumElevators]slave.Elevator, calls Calls, availableElevators [config.NumElevators]bool) []byte {
 
 	input := HRAInput{
 		HallRequests: calls.HallCalls[:],
 		States:       map[string]HRAElevState{},
 	}
 
-	// adding all available elevators to the input map
-	for i := range config.N_ELEVATORS {
+	for i := range config.NumElevators {
 		if availableElevators[i] {
 			input.States[strconv.Itoa(elevators[i].ID)] = HRAElevState{
 				Floor:       elevators[i].Floor,
@@ -176,9 +178,9 @@ Input: JOSN encoding of the assigned calls
 
 Output: an array of the assigned calls
 */
-func transformOutputFromJSON(outputJsonFormat []byte, calls Calls) [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool {
-	output := [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool{}
-	tempOutput := new(map[string][config.N_FLOORS][config.N_BUTTONS - 1]bool)
+func transformOutputFromJSON(outputJsonFormat []byte, calls Calls) [config.NumElevators][config.NumFloors][config.NumBtns]bool {
+	output := [config.NumElevators][config.NumFloors][config.NumBtns]bool{}
+	tempOutput := new(map[string][config.NumFloors][config.NumBtns - 1]bool)
 
 	errUnmarshal := json.Unmarshal(outputJsonFormat, &tempOutput)
 
@@ -189,14 +191,13 @@ func transformOutputFromJSON(outputJsonFormat []byte, calls Calls) [config.N_ELE
 	for elevatorKey, tempElevatorOrders := range *tempOutput {
 		elevatorId, err_convert := strconv.Atoi(elevatorKey)
 
-		elevatorOrders := [config.N_FLOORS][config.N_BUTTONS]bool{}
+		elevatorOrders := [config.NumFloors][config.NumBtns]bool{}
 
 		if err_convert != nil {
 			fmt.Println("Error occured when converting to right assign format: ", err_convert)
 		}
 
-		for floor := range config.N_FLOORS {
-			// appending cab calls from worldview of each floor to the output
+		for floor := range config.NumFloors {
 			elevatorOrders[floor] = [3]bool{tempElevatorOrders[floor][elevio.BT_HallUp], tempElevatorOrders[floor][elevio.BT_HallDown], calls.CabCalls[elevatorId][floor]}
 		}
 

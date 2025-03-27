@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strconv"
 
 	"github.com/Kirlu3/Sanntid-G30/heislab/backup"
 	"github.com/Kirlu3/Sanntid-G30/heislab/config"
@@ -12,36 +13,43 @@ import (
 	"github.com/Kirlu3/Sanntid-G30/heislab/slave"
 )
 
-// the program should be called with go run heislab/main.go -id=x -port=5590x
 func main() {
-	// id := os.Args[1:][0]
 	id := flag.String("id", "inv", "id of this elevator")
 	serverPort := flag.String("port", "15657", "port to communicate with elevator")
 	flag.Parse()
 
 	if *id == "inv" {
-		panic("please specify an id in [0, N_Elevators) with -id=x")
+		panic("please specify an id in [0, NumElevators] with -id=x")
+	}
+
+	idInt, err := strconv.Atoi(*id)
+
+	if err != nil {
+		panic("id must be an integer")
+	}
+
+	if idInt < 0 || idInt >= config.NumElevators {
+		panic("id must be in [0, NumElevators]")
 	}
 
 	serverAddress := fmt.Sprintf("localhost:%s", *serverPort)
-	elevio.Init(serverAddress, config.N_FLOORS)
+	elevio.Init(serverAddress, config.NumFloors)
 
-	// Channels for offline communication
-	offlineCallsToSlaveChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	offlineCallsToSlaveChan := make(chan [config.NumElevators][config.NumFloors][config.NumBtns]bool)
 	offlineSlaveBtnToMasterChan := make(chan slave.ButtonMessage)
 	offlineSlaveStateToMasterChan := make(chan slave.Elevator)
 
 	startSendingBtnOfflineChan := make(chan struct{})
 	startSendingStateOfflineChan := make(chan struct{})
 
-	slave.Slave(*id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan, startSendingBtnOfflineChan, startSendingStateOfflineChan)
+	slave.Main(idInt, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan, startSendingBtnOfflineChan, startSendingStateOfflineChan)
 
-	backedUpCalls := backup.Backup(*id)
+	backedUpCalls := backup.Run(idInt)
 
 	startSendingBtnOfflineChan <- struct{}{}
 	startSendingStateOfflineChan <- struct{}{}
 
-	master.Master(backedUpCalls, *id, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
+	master.Main(backedUpCalls, idInt, offlineCallsToSlaveChan, offlineSlaveBtnToMasterChan, offlineSlaveStateToMasterChan)
 
 	select {}
 }

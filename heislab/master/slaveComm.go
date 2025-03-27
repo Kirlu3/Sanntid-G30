@@ -1,7 +1,6 @@
 package master
 
 import (
-	"fmt"
 	"slices"
 	"time"
 
@@ -12,7 +11,13 @@ import (
 )
 
 /*
-buttonPressRx receives button presses from the slaves, acknowledges them and sends a callsUpdate to the backupCoordinator, which forwards this information to the backups and ensures reassignments of the current calls.
+# Listens to buttonpresses from the slaves and sends them to be backed up. Also sends acknowledgements to messages received over the network.
+
+Inputs: callsUpdateChan, offlineSlaveBtnToMasterChan
+
+callsUpdateChan: sends updates about the active calls to be backed up
+
+offlineSlaveBtnToMasterChan: receives button presses from the slave running on the same machine as the master
 */
 func buttonPressRx(
 	callsUpdateChan chan<- struct {
@@ -21,11 +26,9 @@ func buttonPressRx(
 	},
 	offlineSlaveBtnToMasterChan <-chan slave.ButtonMessage,
 ) {
-	//channel to receive button presses
 	btnPressRxChan := make(chan slave.ButtonMessage)
 	go bcast.Receiver(config.SlaveButtonPort, btnPressRxChan)
 
-	//ack channel to send acknowledgments
 	ackTxChan := make(chan int)
 	go bcast.Transmitter(config.SlaveAckPort, ackTxChan)
 
@@ -33,27 +36,31 @@ func buttonPressRx(
 	for {
 		select {
 		case newBtn := <-btnPressRxChan:
-			println("ST: Received button press")
 			ackTxChan <- newBtn.MsgID
-			fmt.Println("ST: Sent Ack", newBtn.MsgID)
 			if !slices.Contains(msgIDs, newBtn.MsgID) {
 				msgIDs = append(msgIDs, newBtn.MsgID)
-				// remove the oldest messageID if we've stored too many. 20 is a completely arbitrary number, but leaves room for ~7 messages per slave
+				//removes the oldest message ID if the slice is longer than 20. 20 is an arbitrary number.
 				if len(msgIDs) > 20 {
 					msgIDs = msgIDs[1:]
 				}
 				callsUpdateChan <- makeAddCallsUpdate(newBtn)
 			}
 		case newBtn := <-offlineSlaveBtnToMasterChan:
-			println("ST: Received button press offline")
 			callsUpdateChan <- makeAddCallsUpdate(newBtn)
 		}
 	}
 }
 
 /*
-slaveStateUpdateRx listens to UDP broadcasts from the slaves, which contains their state.
-Dependent on the state of the slave, the routine sends a removeCallsUpdate to the backupCoordinator, which forwards this information to the backups and ensures reassignments of the current calls.
+# Listens to updates to the slaves elevator state and sends them to the assigner. Also sends updates on cleared orders to be backed up
+
+Inputs: slaveStateUpdateChan, callsUpdateChan, offlineSlaveStateToMasterChan
+
+slaveStateUpdateChan: sends updates about the slaves elevator state to the assigner
+
+callsUpdateChan: sends updates about the active calls to be backed up
+
+offlineSlaveStateToMasterChan: receives updates about the slaves elevator state from the slave running on the same machine as the master
 */
 func slaveStateUpdateRx(
 	slaveStateUpdateChan chan<- slave.Elevator,
@@ -65,7 +72,7 @@ func slaveStateUpdateRx(
 
 ) {
 	slaveStateUpdateRxChan := make(chan slave.Elevator)
-	elevators := [config.N_ELEVATORS]slave.Elevator{}
+	elevators := [config.NumElevators]slave.Elevator{}
 	go bcast.Receiver(config.SlaveBroadcastPort, slaveStateUpdateRxChan)
 
 	var slaveStateUpdate slave.Elevator
@@ -79,7 +86,7 @@ func slaveStateUpdateRx(
 			elevators[slaveStateUpdate.ID] = slaveStateUpdate
 			slaveStateUpdateChan <- slaveStateUpdate
 		}
-		if slaveStateUpdate.Behaviour == slave.EB_DoorOpen && !slaveStateUpdate.Stuck {
+		if slaveStateUpdate.Behaviour == slave.BehaviourDoorOpen && !slaveStateUpdate.Stuck {
 			callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
 		}
 	}
@@ -98,9 +105,9 @@ func makeRemoveCallsUpdate(elevator slave.Elevator) UpdateCalls {
 
 	callsUpdate.Calls.CabCalls[elevator.ID][elevator.Floor] = true
 	switch elevator.Direction {
-	case slave.D_Down:
+	case slave.DirectionDown:
 		callsUpdate.Calls.HallCalls[elevator.Floor][elevio.BT_HallDown] = true
-	case slave.D_Up:
+	case slave.DirectionUp:
 		callsUpdate.Calls.HallCalls[elevator.Floor][elevio.BT_HallUp] = true
 	default:
 	}
@@ -128,22 +135,21 @@ func makeAddCallsUpdate(btnMessage slave.ButtonMessage) UpdateCalls {
 /*
 callsToSlaveTx transmitts the calls received on callsToSlaveChan to the slaves on the SlaveCallsPort port.
 */
-func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
-
-	callsToSlavesTxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+func callsToSlavesTx(callsToSlaveChan chan [config.NumElevators][config.NumFloors][config.NumBtns]bool,
+	offlineCallsToSlaveChan chan<- [config.NumElevators][config.NumFloors][config.NumBtns]bool,
+) {
+	callsToSlavesTxChan := make(chan [config.NumElevators][config.NumFloors][config.NumBtns]bool)
 	go bcast.Transmitter(config.SlaveCallsPort, callsToSlavesTxChan)
 
-	var callsToSlave [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	callsToSlave := <-callsToSlaveChan
 	for {
 		select {
 		case callsToSlave = <-callsToSlaveChan:
-			fmt.Println("ST: Newly assigned calls sent")
-			fmt.Println(callsToSlave)
 			callsToSlavesTxChan <- callsToSlave
 			offlineCallsToSlaveChan <- callsToSlave
 		case <-time.After(time.Millisecond * time.Duration(config.MasterBroadcastAssignedPeriodMs)):
 			callsToSlavesTxChan <- callsToSlave
+			offlineCallsToSlaveChan <- callsToSlave
 		}
 	}
 }

@@ -15,47 +15,40 @@ Input: the elevator ID and all relevant channels
 */
 func fsm(ID int,
 	slaveStateToMasterChan chan<- Elevator,
-	callsFromMasterChan <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
-	drv_NewFloorChan <-chan int,
-	drv_ObstrChan <-chan bool,
-	drv_StopChan <-chan bool,
-	timerDurationChan chan int,
-	timer *time.Timer,
+	callsFromMasterChan <-chan [config.NumFloors][config.NumBtns]bool,
+	drvNewFloorChan <-chan int,
+	drvObstrChan <-chan bool,
+	drvStopChan <-chan bool,
+	elevatorTimer *time.Timer,
 ) {
-
 	var elevator Elevator
 	elevator.ID = ID
-	updateLights(elevator.Calls)
 
 	newElevator := initElevator(elevator)
-	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
 	for {
-		fmt.Println("FSM:New Loop")
 		activateElevatorIO(elevator)
 		select {
 		case newCalls := <-callsFromMasterChan:
-			fmt.Println("Slave: Updating orders")
 			elevator.Calls = newCalls
 			newElevator = onNewCalls(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
-		case floor := <-drv_NewFloorChan:
-			fmt.Println("FSM: Floor arrival", floor)
+		case floor := <-drvNewFloorChan:
 			newElevator = onFloorArrival(floor, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
-		case obstr := <-drv_ObstrChan:
+		case obstr := <-drvObstrChan:
 			newElevator = onObstruction(obstr, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
-		case <-drv_StopChan:
+		case <-drvStopChan:
 			onStopButtonPress()
 
-		case <-timer.C:
-			fmt.Println("FSM: Timer end")
+		case <-elevatorTimer.C:
 			newElevator = onTimerEnd(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timerDurationChan)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 		}
 	}
 }
@@ -68,10 +61,8 @@ Input: elevator object
 Returns: the new elevator object with initialized direction and behaviour
 */
 func initElevator(elevator Elevator) Elevator {
-	fmt.Println("onInit")
-	elevator.Direction = D_Down
-	elevator.Behaviour = EB_Moving
-	fmt.Println("offInit")
+	elevator.Direction = DirectionUp
+	elevator.Behaviour = BehaviourMoving
 	return elevator
 }
 
@@ -83,17 +74,18 @@ Input: the old elevator object with updated calls
 Returns: the new elevator object with updated direction and behaviour
 */
 func onNewCalls(elevator Elevator) Elevator {
-	fmt.Println("onRequest, behaviour:", elevator.Behaviour)
 	switch elevator.Behaviour {
-	case EB_Idle:
+	case BehaviourIdle:
 		direction, behaviour := chooseElevatorDirection(elevator)
 		elevator.Direction = direction
 		elevator.Behaviour = behaviour
-		if elevator.Behaviour == EB_DoorOpen {
+		if elevator.Behaviour == BehaviourDoorOpen {
 			elevator = clearCallsAtCurrentFloor(elevator)
 		}
-	case EB_DoorOpen:
-		elevator = clearCallsAtCurrentFloor(elevator)
+	case BehaviourDoorOpen:
+		if !elevator.Obstruction {
+			elevator = clearCallsAtCurrentFloor(elevator)
+		}
 	}
 
 	return elevator
@@ -110,23 +102,22 @@ func onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	if !elevator.Obstruction {
 		elevator.Stuck = false //if the elevator arrives at a floor, it is not stuck
 	}
-	fmt.Println("onFloorArrival")
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
-	case EB_Moving:
+	case BehaviourMoving:
 		if shouldElevatorStop(elevator) {
 			if callsAtCurrentFloor(elevator) {
 				newElevator := clearCallsAtCurrentFloor(elevator)
 				if newElevator.Calls == elevator.Calls {
 					switch elevator.Direction {
-					case D_Down:
-						elevator.Direction = D_Up
-					case D_Up:
-						elevator.Direction = D_Down
+					case DirectionDown:
+						elevator.Direction = DirectionUp
+					case DirectionUp:
+						elevator.Direction = DirectionDown
 					}
 				}
 				elevator = clearCallsAtCurrentFloor(elevator)
-				elevator.Behaviour = EB_DoorOpen
+				elevator.Behaviour = BehaviourDoorOpen
 			} else {
 				direction, behaviour := chooseElevatorDirection(elevator)
 				elevator.Direction = direction
@@ -145,7 +136,6 @@ Input: the state of the obstructuin switch and the elevator object.
 Returns: the elevator object with updated state depending on obstruction.
 */
 func onObstruction(obstruction bool, elevator Elevator) Elevator {
-	fmt.Println("onObstruction")
 	elevator.Obstruction = obstruction
 	return elevator
 }
@@ -170,22 +160,19 @@ Returns: the elevator object with updated state
 func onTimerEnd(elevator Elevator) Elevator {
 
 	switch elevator.Behaviour {
-	case EB_DoorOpen:
-		fmt.Println("FSM:onTimerEnd DO")
-
+	case BehaviourDoorOpen:
 		if !elevator.Obstruction {
 			elevator.Stuck = false
 			direction, behaviour := chooseElevatorDirection(elevator)
 			elevator.Direction = direction
 			elevator.Behaviour = behaviour
-			if elevator.Behaviour == EB_DoorOpen {
+			if elevator.Behaviour == BehaviourDoorOpen {
 				elevator = clearCallsAtCurrentFloor(elevator)
 			}
 		} else {
 			elevator.Stuck = true
 		}
-	case EB_Moving:
-		fmt.Println("FSM:onTimerEnd M")
+	case BehaviourMoving:
 		elevator.Stuck = true
 	}
 	return elevator

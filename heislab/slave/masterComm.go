@@ -1,7 +1,6 @@
 package slave
 
 import (
-	"fmt"
 	"math/rand/v2"
 	"sync"
 	"time"
@@ -18,10 +17,20 @@ type ButtonMessage struct {
 }
 
 /*
-buttonPressTx transmitts buttonpresses to the master until an aknowledgement for the message is received.
+# buttonPressTx transmitts buttonpresses to the master until an aknowledgement for the message is received or a timeout occurs.
+
+# If the master is located on the same machine, the buttonpresses are sent to the offlineSlaveBtnToMasterChan channel.
+
+Input: drvBtnChan, offlineSlaveBtnToMasterChan, startSendingBtnOfflineChan, ID
+
+drvBtnChan: receives buttonpresses from the driver
+
+offlineSlaveBtnToMasterChan: sends buttonpresses to the master when the master is located on the same machine
+
+startSendingBtnOfflineChan: receives instruction to start sending in offline mode
 */
 func buttonPressTx(
-	drv_BtnChan <-chan elevio.ButtonEvent,
+	drvBtnChan <-chan elevio.ButtonEvent,
 	offlineSlaveBtnToMasterChan chan<- ButtonMessage,
 	startSendingBtnOfflineChan <-chan struct{},
 	ID int,
@@ -34,7 +43,7 @@ func buttonPressTx(
 	ackTimeoutChan := make(chan int, 10)
 	var needAck []ButtonMessage
 	var outgoingMessage ButtonMessage
-	var mu sync.Mutex //Removes all possibility of a race condition
+	var needAckMu sync.Mutex // Mutex for needAck to avoid any potential race condition
 
 	sendUDP := true
 mainLoop:
@@ -42,67 +51,59 @@ mainLoop:
 		select {
 		case <-startSendingBtnOfflineChan:
 			sendUDP = false
-		case btnPress := <-drv_BtnChan:
-			fmt.Println("STx: Button Pressed")
+		case btnPress := <-drvBtnChan:
 
 			if !sendUDP {
 				offlineSlaveBtnToMasterChan <- ButtonMessage{0, ID, btnPress}
 				continue mainLoop
 			}
 
-			fmt.Println("STx: Sending Button")
 			msgID := rand.Int()
 			outgoingMessage = ButtonMessage{msgID, ID, btnPress}
 			SlaveBtnToMasterTxChan <- outgoingMessage
-			mu.Lock()
+			needAckMu.Lock()
 			needAck = append(needAck, outgoingMessage)
-			mu.Unlock()
+			needAckMu.Unlock()
 			ackTimeoutChan <- msgID
 
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendTimeoutMs), func() {
-				//fmt.Println("STx: Message timeout", msgID)
-				mu.Lock()
-				oldLen := len(needAck)
+				needAckMu.Lock()
 				needAck = removeMsgFromNeedAck(needAck, msgID)
-				if len(needAck) == oldLen {
-					//fmt.Println("STx: Ack previously received")
-				}
-				mu.Unlock()
+				needAckMu.Unlock()
 			})
 
 		case msgID := <-ackRxChan:
-			fmt.Println("STx: Received Ack", msgID)
-			mu.Lock()
+			needAckMu.Lock()
 			needAck = removeMsgFromNeedAck(needAck, msgID)
-			mu.Unlock()
+			needAckMu.Unlock()
 
 		case msgID := <-ackTimeoutChan:
-			// fmt.Println("STx: Waiting for ack")
-			//fmt.Println("STx: Starting timer")
-			//Potential for race condition on needAck
+
 			time.AfterFunc(time.Millisecond*time.Duration(config.ResendPeriodMs), func() {
-				//fmt.Println("STx: Ack timeout")
-				mu.Lock()
+				needAckMu.Lock()
 				for i := range len(needAck) {
 					if needAck[i].MsgID == msgID {
-						//fmt.Println("STx: Resending message", msgID)
 						SlaveBtnToMasterTxChan <- needAck[i]
 						ackTimeoutChan <- msgID
 						break
 					}
 				}
-				mu.Unlock()
+				needAckMu.Unlock()
 			})
 		}
 	}
 }
 
 /*
-slaveStateTx handles periodic transmission of the elevator´s state to the master.
-It reads the elevator´s state from slaveStateToMasterChan.
-If the master is in offline mode, the state of the elevator is sent to the channel offlineSlaveStateToMasterChan.
-Otherwise, the state is broadcasted to the master.
-The function continuously checks for master updates and ensures that the elevator's state is transmitted at regular intervals.
+# Periodically transmits the elevator state to the master.
+
+Input: slaveStateToMasterChan, offlineSlaveStateToMasterChan, startSendingStateOfflineChan
+
+slaveStateToMasterChan: sends the elevator state to the master over UDP
+
+offlineSlaveStateToMasterChan: sends the elevator state to the master when the master is located on the same machine
+
+startSendingStateOfflineChan: receives instruction to start sending in offline mode
 */
 func slaveStateTx(
 	slaveStateToMasterChan <-chan Elevator,
@@ -138,15 +139,15 @@ These calls are then handled in the same manner as the other assigned calls.
 The function also updates the lights inside and outside the elevator.
 */
 func callsFromMasterRx(
-	callsFromMasterChan chan<- [config.N_FLOORS][config.N_BUTTONS]bool,
-	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	callsFromMasterChan chan<- [config.NumFloors][config.NumBtns]bool,
+	offlineCallsToSlaveChan <-chan [config.NumElevators][config.NumFloors][config.NumBtns]bool,
 	ID int,
 ) {
-	callsFromMasterRxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	callsFromMasterRxChan := make(chan [config.NumElevators][config.NumFloors][config.NumBtns]bool)
 	go bcast.Receiver(config.SlaveCallsPort, callsFromMasterRxChan)
 
-	var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	var newCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	var prevCalls [config.NumElevators][config.NumFloors][config.NumBtns]bool
+	var newCalls [config.NumElevators][config.NumFloors][config.NumBtns]bool
 	listenUDP := true
 	for {
 		if listenUDP {
@@ -160,22 +161,20 @@ func callsFromMasterRx(
 		}
 
 		if newCalls != prevCalls {
-			fmt.Println("SRx: Received New Message")
 			prevCalls = newCalls
 			callsFromMasterChan <- newCalls[ID]
 
-			newLights := [config.N_FLOORS][config.N_BUTTONS]bool{}
+			newLights := [config.NumFloors][config.NumBtns]bool{}
 
 			//Gets all active calls for all elevators that can be displayed on the lights
-			for elevator := range config.N_ELEVATORS {
-				for floor := range config.N_FLOORS {
+			for elevator := range config.NumElevators {
+				for floor := range config.NumFloors {
 					newLights[floor][elevio.BT_Cab] = newCalls[ID][floor][elevio.BT_Cab]
 					newLights[floor][elevio.BT_HallUp] = newLights[floor][elevio.BT_HallUp] || newCalls[elevator][floor][elevio.BT_HallUp]
 					newLights[floor][elevio.BT_HallDown] = newLights[floor][elevio.BT_HallDown] || newCalls[elevator][floor][elevio.BT_HallDown]
 				}
 			}
 			updateLights(newLights)
-
 		}
 	}
 }

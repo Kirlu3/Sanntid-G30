@@ -4,8 +4,9 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
+go build -o main heislab/main.go
+
 while true; do
-    go build -o main heislab/main.go
     ./main -id="$1" -port="$2"
     exit_code=$?
     if [ $exit_code -eq 42 ]; then
