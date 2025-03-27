@@ -19,12 +19,12 @@ const (
 )
 
 const (
-	BackupBroadcastPeriodMs         = 1
-	MasterBroadcastCallsPeriodMs    = 1
-	MasterBroadcastAssignedPeriodMs = 10
-	SlaveBroadcastPeriodMs          = 1
+	BackupBroadcastPeriodMs         = 20
+	MasterBroadcastCallsPeriodMs    = 20
+	MasterBroadcastAssignedPeriodMs = 20
+	SlaveBroadcastPeriodMs          = 20
 
-	ResendPeriodMs  = 10
+	ResendPeriodMs  = 20
 	ResendTimeoutMs = 2000
 
 	CheckBackupAckMs = 50
