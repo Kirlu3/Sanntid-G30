@@ -1,9 +1,9 @@
 package config
 
 const (
-	N_FLOORS    = 4
-	N_BUTTONS   = 3
-	N_ELEVATORS = 3
+	NumFloors    = 4
+	NumBtns      = 3
+	NumElevators = 3
 )
 
 const (

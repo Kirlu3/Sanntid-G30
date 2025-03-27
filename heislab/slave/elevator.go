@@ -10,24 +10,24 @@ import (
 type ElevatorBehaviour int
 
 const (
-	EB_Idle ElevatorBehaviour = iota
-	EB_DoorOpen
-	EB_Moving
+	BehaviourIdle ElevatorBehaviour = iota
+	BehaviourDoorOpen
+	BehaviourMoving
 )
 
 type ElevatorDirection int
 
 const (
-	D_Down ElevatorDirection = -1
-	D_Stop ElevatorDirection = 0
-	D_Up   ElevatorDirection = 1
+	DirectionDown ElevatorDirection = -1
+	DirectionStop ElevatorDirection = 0
+	DirectionUp   ElevatorDirection = 1
 )
 
 type Elevator struct {
 	ID          int
 	Floor       int
 	Direction   ElevatorDirection
-	Calls       [config.N_FLOORS][config.N_BUTTONS]bool
+	Calls       [config.NumFloors][config.NumBtns]bool
 	Behaviour   ElevatorBehaviour
 	Stuck       bool
 	Obstruction bool
@@ -41,11 +41,11 @@ Input: The elevator to be checked
 Returns: True if the elevator is valid, false otherwise
 */
 func validElevator(elevator Elevator) bool {
-	return elevator.Behaviour >= EB_Idle && elevator.Behaviour <= EB_Moving && //Behaviour in bounds
-		elevator.Direction >= D_Down && elevator.Direction <= D_Up && //Direction in bounds
-		elevator.Floor > -1 && elevator.Floor < config.N_FLOORS && //Floor in bounds
-		!elevator.Calls[config.N_FLOORS-1][elevio.BT_HallUp] && !elevator.Calls[0][elevio.BT_HallDown] && //no impossible Calls
-		!(elevator.Behaviour == EB_Moving && elevator.Direction == D_Stop) //no Behaviour moving without Direction
+	return elevator.Behaviour >= BehaviourIdle && elevator.Behaviour <= BehaviourMoving && //Behaviour in bounds
+		elevator.Direction >= DirectionDown && elevator.Direction <= DirectionUp && //Direction in bounds
+		elevator.Floor > -1 && elevator.Floor < config.NumFloors && //Floor in bounds
+		!elevator.Calls[config.NumFloors-1][elevio.BT_HallUp] && !elevator.Calls[0][elevio.BT_HallDown] && //no impossible Calls
+		!(elevator.Behaviour == BehaviourMoving && elevator.Direction == DirectionStop) //no Behaviour moving without Direction
 }
 
 /*
@@ -55,17 +55,21 @@ Input: The new state of the elevator, the current state of the elevator, the cha
 
 Returns: The updated elevator struct
 */
-func updateElevatorState(newElevator Elevator, elevator Elevator, slaveStateToMasterChan chan<- Elevator, timer *time.Timer) Elevator {
+func updateElevatorState(newElevator Elevator,
+	elevator Elevator,
+	slaveStateToMasterChan chan<- Elevator,
+	stateTimer *time.Timer,
+) Elevator {
 	if validElevator(newElevator) {
 		slaveStateToMasterChan <- newElevator
 
 		switch newElevator.Behaviour {
-		case EB_DoorOpen:
+		case BehaviourDoorOpen:
 			if newElevator.Calls != elevator.Calls || newElevator.Obstruction {
-				timer.Reset(time.Second * time.Duration(config.DoorOpenDuration))
+				stateTimer.Reset(time.Second * time.Duration(config.DoorOpenDuration))
 			}
-		case EB_Moving:
-			timer.Reset(time.Second * time.Duration(config.TimeBetweenFloors))
+		case BehaviourMoving:
+			stateTimer.Reset(time.Second * time.Duration(config.TimeBetweenFloors))
 		}
 
 		return newElevator
@@ -79,8 +83,8 @@ Returns true if there are calls above the elevator's current floor
 Else returns false
 */
 func callsAboveElevator(elevator Elevator) bool {
-	for f := elevator.Floor + 1; f < config.N_FLOORS; f++ {
-		for btn := range config.N_BUTTONS {
+	for f := elevator.Floor + 1; f < config.NumFloors; f++ {
+		for btn := range config.NumBtns {
 			if elevator.Calls[f][btn] {
 				return true
 			}
@@ -96,7 +100,7 @@ Else returns false
 */
 func callsBelowElevator(elevator Elevator) bool {
 	for f := range elevator.Floor {
-		for btn := range config.N_BUTTONS {
+		for btn := range config.NumBtns {
 			if elevator.Calls[f][btn] {
 				return true
 			}
@@ -111,7 +115,7 @@ Returns true if there are calls at the elevator's current floor
 Else returns false
 */
 func callsAtCurrentFloor(elevator Elevator) bool {
-	for btn := range config.N_BUTTONS {
+	for btn := range config.NumBtns {
 		if elevator.Calls[elevator.Floor][btn] {
 			return true
 		}
@@ -128,39 +132,39 @@ Returns: The chosen direction and behaviour for the elevator
 */
 func chooseElevatorDirection(elevator Elevator) (ElevatorDirection, ElevatorBehaviour) {
 	switch elevator.Direction {
-	case D_Up:
+	case DirectionUp:
 		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
-			return D_Up, EB_DoorOpen
+			return DirectionUp, BehaviourDoorOpen
 		} else if callsAboveElevator(elevator) {
-			return D_Up, EB_Moving
+			return DirectionUp, BehaviourMoving
 		} else if callsAtCurrentFloor(elevator) {
-			return D_Down, EB_DoorOpen
+			return DirectionDown, BehaviourDoorOpen
 		} else if callsBelowElevator(elevator) {
-			return D_Down, EB_Moving
+			return DirectionDown, BehaviourMoving
 		} else {
-			return D_Up, EB_Idle
+			return DirectionUp, BehaviourIdle
 		}
-	case D_Down:
+	case DirectionDown:
 		if elevator.Calls[elevator.Floor][elevio.BT_HallDown] || elevator.Calls[elevator.Floor][elevio.BT_Cab] {
-			return D_Down, EB_DoorOpen
+			return DirectionDown, BehaviourDoorOpen
 		} else if callsBelowElevator(elevator) {
-			return D_Down, EB_Moving
+			return DirectionDown, BehaviourMoving
 		} else if callsAtCurrentFloor(elevator) {
-			return D_Up, EB_DoorOpen
+			return DirectionUp, BehaviourDoorOpen
 		} else if callsAboveElevator(elevator) {
-			return D_Up, EB_Moving
+			return DirectionUp, BehaviourMoving
 		} else {
-			return D_Down, EB_Idle
+			return DirectionDown, BehaviourIdle
 		}
-	case D_Stop:
+	case DirectionStop:
 		if callsAtCurrentFloor(elevator) {
-			return D_Stop, EB_DoorOpen
+			return DirectionStop, BehaviourDoorOpen
 		} else if callsAboveElevator(elevator) {
-			return D_Up, EB_Moving
+			return DirectionUp, BehaviourMoving
 		} else if callsBelowElevator(elevator) {
-			return D_Down, EB_Moving
+			return DirectionDown, BehaviourMoving
 		} else {
-			return D_Stop, EB_Idle
+			return DirectionStop, BehaviourIdle
 		}
 	default:
 		panic("Invalid elevator direction")
@@ -174,7 +178,7 @@ Else returns false
 */
 func shouldElevatorStop(elevator Elevator) bool {
 	switch elevator.Direction {
-	case D_Down:
+	case DirectionDown:
 		if elevator.Calls[elevator.Floor][elevio.BT_HallDown] {
 			return true
 		}
@@ -185,7 +189,7 @@ func shouldElevatorStop(elevator Elevator) bool {
 			return true
 		}
 		return false
-	case D_Up:
+	case DirectionUp:
 		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] {
 			return true
 		}
@@ -211,17 +215,17 @@ Returns: the elevator with cleared calls at the current floor, in addition to a 
 func clearCallsAtCurrentFloor(elevator Elevator) Elevator {
 	elevator.Calls[elevator.Floor][elevio.BT_Cab] = false
 	switch elevator.Direction {
-	case D_Up:
+	case DirectionUp:
 		elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
-	case D_Down:
+	case DirectionDown:
 		elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
 	default:
 		if elevator.Calls[elevator.Floor][elevio.BT_HallUp] {
 			elevator.Calls[elevator.Floor][elevio.BT_HallUp] = false
-			elevator.Direction = D_Up
+			elevator.Direction = DirectionUp
 		} else if elevator.Calls[elevator.Floor][elevio.BT_HallDown] {
 			elevator.Calls[elevator.Floor][elevio.BT_HallDown] = false
-			elevator.Direction = D_Down
+			elevator.Direction = DirectionDown
 		}
 	}
 	return elevator

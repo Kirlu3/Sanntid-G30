@@ -139,15 +139,15 @@ These calls are then handled in the same manner as the other assigned calls.
 The function also updates the lights inside and outside the elevator.
 */
 func callsFromMasterRx(
-	callsFromMasterChan chan<- [config.N_FLOORS][config.N_BUTTONS]bool,
-	offlineCallsToSlaveChan <-chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
+	callsFromMasterChan chan<- [config.NumFloors][config.NumBtns]bool,
+	offlineCallsToSlaveChan <-chan [config.NumElevators][config.NumFloors][config.NumBtns]bool,
 	ID int,
 ) {
-	callsFromMasterRxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+	callsFromMasterRxChan := make(chan [config.NumElevators][config.NumFloors][config.NumBtns]bool)
 	go bcast.Receiver(config.SlaveCallsPort, callsFromMasterRxChan)
 
-	var prevCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
-	var newCalls [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool
+	var prevCalls [config.NumElevators][config.NumFloors][config.NumBtns]bool
+	var newCalls [config.NumElevators][config.NumFloors][config.NumBtns]bool
 	listenUDP := true
 	for {
 		if listenUDP {
@@ -164,11 +164,11 @@ func callsFromMasterRx(
 			prevCalls = newCalls
 			callsFromMasterChan <- newCalls[ID]
 
-			newLights := [config.N_FLOORS][config.N_BUTTONS]bool{}
+			newLights := [config.NumFloors][config.NumBtns]bool{}
 
 			//Gets all active calls for all elevators that can be displayed on the lights
-			for elevator := range config.N_ELEVATORS {
-				for floor := range config.N_FLOORS {
+			for elevator := range config.NumElevators {
+				for floor := range config.NumFloors {
 					newLights[floor][elevio.BT_Cab] = newCalls[ID][floor][elevio.BT_Cab]
 					newLights[floor][elevio.BT_HallUp] = newLights[floor][elevio.BT_HallUp] || newCalls[elevator][floor][elevio.BT_HallUp]
 					newLights[floor][elevio.BT_HallDown] = newLights[floor][elevio.BT_HallDown] || newCalls[elevator][floor][elevio.BT_HallDown]

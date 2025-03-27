@@ -15,15 +15,15 @@ func activateElevatorIO(elevator Elevator) {
 	elevio.SetFloorIndicator(elevator.Floor)
 
 	switch elevator.Behaviour {
-	case EB_DoorOpen:
+	case BehaviourDoorOpen:
 		elevio.SetDoorOpenLamp(true)
-		elevio.SetMotorDirection(elevio.MD_Stop)
-	case EB_Moving:
+		elevio.SetMotorDirection(elevio.MDirectionStop)
+	case BehaviourMoving:
 		elevio.SetDoorOpenLamp(false)
 		elevio.SetMotorDirection(elevio.MotorDirection(elevator.Direction))
-	case EB_Idle:
+	case BehaviourIdle:
 		elevio.SetDoorOpenLamp(false)
-		elevio.SetMotorDirection(elevio.MD_Stop)
+		elevio.SetMotorDirection(elevio.MDirectionStop)
 	}
 }
 
@@ -32,9 +32,9 @@ func activateElevatorIO(elevator Elevator) {
 
 Input: Array of how the lights should be updated.
 */
-func updateLights(lights [config.N_FLOORS][config.N_BUTTONS]bool) {
-	for i := range config.N_FLOORS {
-		for j := range config.N_BUTTONS {
+func updateLights(lights [config.NumFloors][config.NumBtns]bool) {
+	for i := range config.NumFloors {
+		for j := range config.NumBtns {
 			elevio.SetButtonLamp(elevio.ButtonType(j), i, lights[i][j])
 		}
 	}

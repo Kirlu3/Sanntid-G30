@@ -17,9 +17,9 @@ var _conn net.Conn
 type MotorDirection int
 
 const (
-	MD_Up   MotorDirection = 1
-	MD_Down                = -1
-	MD_Stop                = 0
+	MDirectionUp   MotorDirection = 1
+	MDirectionDown                = -1
+	MDirectionStop                = 0
 )
 
 type ButtonType int

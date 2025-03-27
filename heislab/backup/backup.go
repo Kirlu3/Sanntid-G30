@@ -17,7 +17,7 @@ Input: id
 
 Returns: the calls that the backup has backed up
 */
-func Run(id string) master.Calls {
+func Run(id int) master.Calls {
 	masterUpdateRxChan := make(chan alive.AliveUpdate)
 	enableBackupTxChan := make(chan bool)
 	backupCallsTxChan := make(chan struct {
@@ -30,18 +30,13 @@ func Run(id string) master.Calls {
 	})
 
 	go alive.Receiver(config.MasterUpdatePort, masterUpdateRxChan)
-	go alive.Transmitter(config.BackupsUpdatePort, id, enableBackupTxChan)
+	go alive.Transmitter(config.BackupsUpdatePort, strconv.Itoa(id), enableBackupTxChan)
 
 	go bcast.Transmitter(config.BackupsBroadcastPort, backupCallsTxChan)
 	go bcast.Receiver(config.MasterBroadcastPort, masterCallsRxChan)
 
 	var masterUpdate alive.AliveUpdate
 	var calls master.Calls
-
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		panic("backup received invalid id")
-	}
 
 	masterUpgradeCooldownTimer := time.NewTimer(5 * time.Second)
 
@@ -55,7 +50,7 @@ func Run(id string) master.Calls {
 
 		case <-time.After(time.Millisecond * config.BackupBroadcastPeriodMs):
 		}
-		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: idInt}
+		backupCallsTxChan <- master.BackupCalls{Calls: calls, Id: id}
 		if len(masterUpdate.Alive) == 0 {
 			select {
 			case <-masterUpgradeCooldownTimer.C:

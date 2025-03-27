@@ -15,18 +15,17 @@ Input: the elevator ID and all relevant channels
 */
 func fsm(ID int,
 	slaveStateToMasterChan chan<- Elevator,
-	callsFromMasterChan <-chan [config.N_FLOORS][config.N_BUTTONS]bool,
+	callsFromMasterChan <-chan [config.NumFloors][config.NumBtns]bool,
 	drvNewFloorChan <-chan int,
 	drvObstrChan <-chan bool,
 	drvStopChan <-chan bool,
-	timer *time.Timer,
+	elevatorTimer *time.Timer,
 ) {
-
 	var elevator Elevator
 	elevator.ID = ID
 
 	newElevator := initElevator(elevator)
-	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
+	elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
 	for {
 		activateElevatorIO(elevator)
@@ -34,22 +33,22 @@ func fsm(ID int,
 		case newCalls := <-callsFromMasterChan:
 			elevator.Calls = newCalls
 			newElevator = onNewCalls(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
 		case floor := <-drvNewFloorChan:
 			newElevator = onFloorArrival(floor, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
 		case obstr := <-drvObstrChan:
 			newElevator = onObstruction(obstr, elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 
 		case <-drvStopChan:
 			onStopButtonPress()
 
-		case <-timer.C:
+		case <-elevatorTimer.C:
 			newElevator = onTimerEnd(elevator)
-			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, timer)
+			elevator = updateElevatorState(newElevator, elevator, slaveStateToMasterChan, elevatorTimer)
 		}
 	}
 }
@@ -62,8 +61,8 @@ Input: elevator object
 Returns: the new elevator object with initialized direction and behaviour
 */
 func initElevator(elevator Elevator) Elevator {
-	elevator.Direction = D_Up
-	elevator.Behaviour = EB_Moving
+	elevator.Direction = DirectionUp
+	elevator.Behaviour = BehaviourMoving
 	return elevator
 }
 
@@ -76,14 +75,14 @@ Returns: the new elevator object with updated direction and behaviour
 */
 func onNewCalls(elevator Elevator) Elevator {
 	switch elevator.Behaviour {
-	case EB_Idle:
+	case BehaviourIdle:
 		direction, behaviour := chooseElevatorDirection(elevator)
 		elevator.Direction = direction
 		elevator.Behaviour = behaviour
-		if elevator.Behaviour == EB_DoorOpen {
+		if elevator.Behaviour == BehaviourDoorOpen {
 			elevator = clearCallsAtCurrentFloor(elevator)
 		}
-	case EB_DoorOpen:
+	case BehaviourDoorOpen:
 		if !elevator.Obstruction {
 			elevator = clearCallsAtCurrentFloor(elevator)
 		}
@@ -105,20 +104,20 @@ func onFloorArrival(newFloor int, elevator Elevator) Elevator {
 	}
 	elevator.Floor = newFloor
 	switch elevator.Behaviour {
-	case EB_Moving:
+	case BehaviourMoving:
 		if shouldElevatorStop(elevator) {
 			if callsAtCurrentFloor(elevator) {
 				newElevator := clearCallsAtCurrentFloor(elevator)
 				if newElevator.Calls == elevator.Calls {
 					switch elevator.Direction {
-					case D_Down:
-						elevator.Direction = D_Up
-					case D_Up:
-						elevator.Direction = D_Down
+					case DirectionDown:
+						elevator.Direction = DirectionUp
+					case DirectionUp:
+						elevator.Direction = DirectionDown
 					}
 				}
 				elevator = clearCallsAtCurrentFloor(elevator)
-				elevator.Behaviour = EB_DoorOpen
+				elevator.Behaviour = BehaviourDoorOpen
 			} else {
 				direction, behaviour := chooseElevatorDirection(elevator)
 				elevator.Direction = direction
@@ -161,19 +160,19 @@ Returns: the elevator object with updated state
 func onTimerEnd(elevator Elevator) Elevator {
 
 	switch elevator.Behaviour {
-	case EB_DoorOpen:
+	case BehaviourDoorOpen:
 		if !elevator.Obstruction {
 			elevator.Stuck = false
 			direction, behaviour := chooseElevatorDirection(elevator)
 			elevator.Direction = direction
 			elevator.Behaviour = behaviour
-			if elevator.Behaviour == EB_DoorOpen {
+			if elevator.Behaviour == BehaviourDoorOpen {
 				elevator = clearCallsAtCurrentFloor(elevator)
 			}
 		} else {
 			elevator.Stuck = true
 		}
-	case EB_Moving:
+	case BehaviourMoving:
 		elevator.Stuck = true
 	}
 	return elevator

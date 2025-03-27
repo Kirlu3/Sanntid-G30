@@ -72,7 +72,7 @@ func slaveStateUpdateRx(
 
 ) {
 	slaveStateUpdateRxChan := make(chan slave.Elevator)
-	elevators := [config.N_ELEVATORS]slave.Elevator{}
+	elevators := [config.NumElevators]slave.Elevator{}
 	go bcast.Receiver(config.SlaveBroadcastPort, slaveStateUpdateRxChan)
 
 	var slaveStateUpdate slave.Elevator
@@ -86,7 +86,7 @@ func slaveStateUpdateRx(
 			elevators[slaveStateUpdate.ID] = slaveStateUpdate
 			slaveStateUpdateChan <- slaveStateUpdate
 		}
-		if slaveStateUpdate.Behaviour == slave.EB_DoorOpen && !slaveStateUpdate.Stuck {
+		if slaveStateUpdate.Behaviour == slave.BehaviourDoorOpen && !slaveStateUpdate.Stuck {
 			callsUpdateChan <- makeRemoveCallsUpdate(slaveStateUpdate)
 		}
 	}
@@ -105,9 +105,9 @@ func makeRemoveCallsUpdate(elevator slave.Elevator) UpdateCalls {
 
 	callsUpdate.Calls.CabCalls[elevator.ID][elevator.Floor] = true
 	switch elevator.Direction {
-	case slave.D_Down:
+	case slave.DirectionDown:
 		callsUpdate.Calls.HallCalls[elevator.Floor][elevio.BT_HallDown] = true
-	case slave.D_Up:
+	case slave.DirectionUp:
 		callsUpdate.Calls.HallCalls[elevator.Floor][elevio.BT_HallUp] = true
 	default:
 	}
@@ -135,10 +135,10 @@ func makeAddCallsUpdate(btnMessage slave.ButtonMessage) UpdateCalls {
 /*
 callsToSlaveTx transmitts the calls received on callsToSlaveChan to the slaves on the SlaveCallsPort port.
 */
-func callsToSlavesTx(callsToSlaveChan chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool,
-	offlineCallsToSlaveChan chan<- [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool) {
-
-	callsToSlavesTxChan := make(chan [config.N_ELEVATORS][config.N_FLOORS][config.N_BUTTONS]bool)
+func callsToSlavesTx(callsToSlaveChan chan [config.NumElevators][config.NumFloors][config.NumBtns]bool,
+	offlineCallsToSlaveChan chan<- [config.NumElevators][config.NumFloors][config.NumBtns]bool,
+) {
+	callsToSlavesTxChan := make(chan [config.NumElevators][config.NumFloors][config.NumBtns]bool)
 	go bcast.Transmitter(config.SlaveCallsPort, callsToSlavesTxChan)
 
 	callsToSlave := <-callsToSlaveChan
